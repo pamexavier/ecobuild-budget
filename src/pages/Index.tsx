@@ -1,14 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
+import { Leaf, FileText, PieChart, BarChart3, Upload, HardHat, UserPlus } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
 import { DashboardOrcamento } from '@/components/DashboardOrcamento';
 import { ResumoSemana } from '@/components/ResumoSemana';
 import { ImportarPlanilha } from '@/components/ImportarPlanilha';
+import { CadastrarObraModal } from '@/components/CadastrarObraModal';
+import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
 import { useAppStore } from '@/lib/store';
 
 const Index = () => {
-  const { lancamentos, obras, addLancamento, addMultipleLancamentos } = useAppStore();
+  const { lancamentos, obras, profissionais, addLancamento, addMultipleLancamentos, addObra, addProfissional } = useAppStore();
   const [activeSection, setActiveSection] = useState('lancamento');
 
   const sectionRefs = {
@@ -23,7 +26,6 @@ const Index = () => {
     sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Update active on scroll
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -50,44 +52,57 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b-2 border-foreground">
-        <div className="container py-4">
-          <h1 className="font-mono text-base font-bold tracking-wider">ECOGESTÃO OBRAS</h1>
-          <p className="font-body text-xs text-muted-foreground mt-0.5">ECOMINDS X — GESTÃO DE PAGAMENTOS</p>
+      <header className="bg-card border-b border-border">
+        <div className="container py-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Leaf className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold tracking-tight">EcoGestão Obras</h1>
+                <p className="text-xs text-muted-foreground">EcomindsX · Gestão de Pagamentos</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <CadastrarObraModal onAdd={addObra} />
+              <CadastrarProfissionalModal onAdd={addProfissional} />
+            </div>
+          </div>
         </div>
       </header>
 
       <NavAnchor active={activeSection} onNavigate={navigateTo} />
 
-      <main className="container pb-20">
+      <main className="container pb-24 space-y-10">
         {/* Lançamento */}
-        <section ref={sectionRefs.lancamento} className="py-6">
-          <SectionDivider title="Formulário de Lançamento" />
-          <div className="mt-4">
-            <FormularioLancamento obras={obras} onSubmit={addLancamento} />
+        <section ref={sectionRefs.lancamento} className="pt-8">
+          <SectionDivider title="Formulário de Lançamento" icon={FileText} />
+          <div className="mt-2 rounded-lg border border-border bg-card p-5">
+            <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} />
           </div>
         </section>
 
         {/* Orçamento */}
-        <section ref={sectionRefs.orcamento} className="py-6">
-          <SectionDivider title="Dashboard de Orçamento" />
-          <div className="mt-4">
+        <section ref={sectionRefs.orcamento}>
+          <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
+          <div className="mt-2">
             <DashboardOrcamento obras={obras} lancamentos={lancamentos} />
           </div>
         </section>
 
         {/* Relatórios */}
-        <section ref={sectionRefs.relatorios} className="py-6">
-          <SectionDivider title="Resumo da Semana" />
-          <div className="mt-4">
+        <section ref={sectionRefs.relatorios}>
+          <SectionDivider title="Resumo da Semana" icon={BarChart3} />
+          <div className="mt-2">
             <ResumoSemana lancamentos={lancamentos} obras={obras} />
           </div>
         </section>
 
         {/* Importar */}
-        <section ref={sectionRefs.importar} className="py-6">
-          <SectionDivider title="Importar Dados" />
-          <div className="mt-4">
+        <section ref={sectionRefs.importar}>
+          <SectionDivider title="Importar Dados" icon={Upload} />
+          <div className="mt-2">
             <ImportarPlanilha obras={obras} onImport={addMultipleLancamentos} />
           </div>
         </section>

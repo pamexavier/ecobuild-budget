@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { Lancamento, Obra } from '@/lib/types';
 
 interface Props {
@@ -10,11 +9,8 @@ interface Props {
 export function ResumoSemana({ lancamentos, obras }: Props) {
   const [filtroObra, setFiltroObra] = useState('');
 
-  const filtered = filtroObra
-    ? lancamentos.filter(l => l.obraId === filtroObra)
-    : lancamentos;
+  const filtered = filtroObra ? lancamentos.filter(l => l.obraId === filtroObra) : lancamentos;
 
-  // Filter for this week
   const now = new Date();
   const startOfWeek = new Date(now);
   startOfWeek.setDate(now.getDate() - now.getDay());
@@ -25,55 +21,50 @@ export function ResumoSemana({ lancamentos, obras }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Filter */}
-      <div className="relative">
-        <select
-          value={filtroObra}
-          onChange={e => setFiltroObra(e.target.value)}
-          className="w-full bg-background border-2 border-foreground p-3 font-mono text-xs appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">TODAS AS OBRAS</option>
-          {obras.map(o => (
-            <option key={o.id} value={o.id}>{o.nome}</option>
-          ))}
-        </select>
-        <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 pointer-events-none" />
-      </div>
+      <select
+        value={filtroObra}
+        onChange={e => setFiltroObra(e.target.value)}
+        className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <option value="">Todas as obras</option>
+        {obras.map(o => (
+          <option key={o.id} value={o.id}>{o.nome}</option>
+        ))}
+      </select>
 
-      {/* Table */}
-      <div className="border-2 border-foreground overflow-x-auto">
+      <div className="rounded-lg border border-border bg-card overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b-2 border-foreground">
-              <th className="font-mono text-[10px] font-bold tracking-wider p-2 text-left">DATA</th>
-              <th className="font-mono text-[10px] font-bold tracking-wider p-2 text-left">PROFISSIONAL</th>
-              <th className="font-mono text-[10px] font-bold tracking-wider p-2 text-left">CAT.</th>
-              <th className="font-mono text-[10px] font-bold tracking-wider p-2 text-right">VALOR</th>
+            <tr className="border-b border-border">
+              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Data</th>
+              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Profissional</th>
+              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Cat.</th>
+              <th className="text-xs font-medium text-muted-foreground p-3 text-right">Valor</th>
             </tr>
           </thead>
           <tbody>
             {weekEntries.length === 0 ? (
               <tr>
-                <td colSpan={4} className="font-mono text-xs text-muted-foreground p-3">
-                  NENHUM DADO DISPONÍVEL
+                <td colSpan={4} className="text-sm text-muted-foreground p-4 text-center">
+                  Nenhum lançamento nesta semana
                 </td>
               </tr>
             ) : (
               weekEntries.map(l => (
-                <tr key={l.id} className="border-b border-input">
-                  <td className="font-mono text-xs p-2">{l.data}</td>
-                  <td className="font-mono text-xs p-2">{l.profissional}</td>
-                  <td className="font-mono text-xs p-2">{l.categoria}</td>
-                  <td className="font-mono text-xs p-2 text-right">R$ {l.valor.toFixed(2)}</td>
+                <tr key={l.id} className="border-b border-border last:border-0">
+                  <td className="text-sm p-3">{l.data}</td>
+                  <td className="text-sm p-3">{l.profissional}</td>
+                  <td className="text-sm p-3">{l.categoria}</td>
+                  <td className="text-sm p-3 text-right font-medium">R$ {l.valor.toFixed(2)}</td>
                 </tr>
               ))
             )}
           </tbody>
           {weekEntries.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 border-foreground">
-                <td colSpan={3} className="font-mono text-xs font-bold p-2">TOTAL</td>
-                <td className="font-mono text-xs font-bold p-2 text-right">R$ {total.toFixed(2)}</td>
+              <tr className="border-t border-border bg-muted/30">
+                <td colSpan={3} className="text-sm font-semibold p-3">Total</td>
+                <td className="text-sm font-semibold p-3 text-right">R$ {total.toFixed(2)}</td>
               </tr>
             </tfoot>
           )}
