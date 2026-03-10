@@ -1,24 +1,27 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Upload } from 'lucide-react';
-import { Obra, CATEGORIAS, Turno, Lancamento } from '@/lib/types';
+import { Upload, DollarSign, Check } from 'lucide-react';
+import { Obra, Profissional, Turno, Lancamento } from '@/lib/types';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   obras: Obra[];
+  profissionais: Profissional[];
   onSubmit: (l: Omit<Lancamento, 'id'>) => Lancamento;
 }
 
 const TURNOS: Turno[] = ['Manhã', 'Tarde', 'Noite'];
 
-export function FormularioLancamento({ obras, onSubmit }: Props) {
+export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) {
   const [obraId, setObraId] = useState('');
-  const [profissional, setProfissional] = useState('');
-  const [categoria, setCategoria] = useState('');
+  const [profissionalId, setProfissionalId] = useState('');
   const [turnos, setTurnos] = useState<string[]>([]);
   const [valor, setValor] = useState('');
   const [foto, setFoto] = useState<File | null>(null);
   const [submittedEntry, setSubmittedEntry] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const selectedProf = profissionais.find(p => p.id === profissionalId);
 
   const toggleTurno = (t: string) => {
     setTurnos(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
@@ -26,33 +29,30 @@ export function FormularioLancamento({ obras, onSubmit }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!obraId || !profissional || !categoria || turnos.length === 0 || !valor) return;
+    if (!obraId || !profissionalId || turnos.length === 0 || !valor) return;
 
     const obraNome = obras.find(o => o.id === obraId)?.nome || '';
     const valorNum = parseFloat(valor);
     if (isNaN(valorNum) || valorNum <= 0) return;
 
-    // If multiple turnos, rateio
-    const valorPorTurno = valorNum / turnos.length;
     const now = new Date().toISOString().split('T')[0];
 
     const entry = onSubmit({
       obraId,
       obraNome,
-      profissional: profissional.toUpperCase(),
-      categoria: categoria.toUpperCase(),
+      profissionalId,
+      profissional: selectedProf?.nome.toUpperCase() || '',
+      categoria: selectedProf?.categoria.toUpperCase() || '',
       turnos,
       valor: valorNum,
       data: now,
     });
 
-    const summary = `${obraNome.split('—')[0].trim()} | ${entry.profissional} | ${entry.categoria} | R$ ${valorNum.toFixed(2)} | ${now}`;
+    const summary = `${obraNome} · ${entry.profissional} · R$ ${valorNum.toFixed(2)}`;
     setSubmittedEntry(summary);
 
-    // Reset
     setObraId('');
-    setProfissional('');
-    setCategoria('');
+    setProfissionalId('');
     setTurnos([]);
     setValor('');
     setFoto(null);
@@ -60,79 +60,76 @@ export function FormularioLancamento({ obras, onSubmit }: Props) {
     setTimeout(() => setSubmittedEntry(null), 3000);
   };
 
-  const selectClass = "w-full bg-background border-2 border-foreground p-3 font-mono text-sm appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary";
-  const inputClass = "w-full bg-background border-2 border-foreground p-3 font-body text-sm focus:outline-none focus:ring-2 focus:ring-primary";
-
   return (
     <div>
       <AnimatePresence>
         {submittedEntry && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-foreground text-background font-mono text-xs p-3 mb-4 tracking-wide"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="bg-primary/10 text-primary border border-primary/20 rounded-lg text-sm p-3 mb-5 flex items-center gap-2"
           >
-            ✓ {submittedEntry}
+            <Check className="w-4 h-4" />
+            {submittedEntry}
           </motion.div>
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         {/* Obra */}
-        <div className="relative">
-          <label className="font-mono text-xs font-bold tracking-wider block mb-1">OBRA</label>
-          <select value={obraId} onChange={e => setObraId(e.target.value)} className={selectClass}>
-            <option value="">SELECIONE A OBRA</option>
+        <div>
+          <label className="text-sm font-medium block mb-1.5">Obra</label>
+          <select
+            value={obraId}
+            onChange={e => setObraId(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Selecione a obra</option>
             {obras.map(o => (
               <option key={o.id} value={o.id}>{o.nome}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-8 w-4 h-4 pointer-events-none" />
         </div>
 
         {/* Profissional */}
         <div>
-          <label className="font-mono text-xs font-bold tracking-wider block mb-1">PROFISSIONAL</label>
-          <input
-            type="text"
-            value={profissional}
-            onChange={e => setProfissional(e.target.value)}
-            placeholder="Nome do profissional"
-            className={inputClass}
-          />
-        </div>
-
-        {/* Categoria */}
-        <div className="relative">
-          <label className="font-mono text-xs font-bold tracking-wider block mb-1">CATEGORIA</label>
-          <select value={categoria} onChange={e => setCategoria(e.target.value)} className={selectClass}>
-            <option value="">SELECIONE</option>
-            {CATEGORIAS.map(c => (
-              <option key={c} value={c}>{c.toUpperCase()}</option>
+          <label className="text-sm font-medium block mb-1.5">Profissional</label>
+          <select
+            value={profissionalId}
+            onChange={e => setProfissionalId(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Selecione o profissional</option>
+            {profissionais.map(p => (
+              <option key={p.id} value={p.id}>{p.nome} — {p.categoria}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-8 w-4 h-4 pointer-events-none" />
+          {selectedProf && (
+            <span className="text-xs text-muted-foreground mt-1 block">
+              Categoria: {selectedProf.categoria}
+            </span>
+          )}
         </div>
 
         {/* Turnos */}
         <div>
-          <label className="font-mono text-xs font-bold tracking-wider block mb-2">
-            TURNO {turnos.length > 1 && <span className="text-muted-foreground">(RATEIO: {turnos.length} TURNOS)</span>}
+          <label className="text-sm font-medium block mb-2">
+            Turno {turnos.length > 1 && <span className="text-muted-foreground font-normal">(Rateio: {turnos.length} turnos)</span>}
           </label>
-          <div className="flex gap-0">
+          <div className="flex gap-2">
             {TURNOS.map(t => (
               <button
                 key={t}
                 type="button"
                 onClick={() => toggleTurno(t)}
-                className={`flex-1 py-3 font-mono text-sm font-bold border-2 border-foreground transition-colors ${
+                className={`flex-1 py-2.5 rounded-lg text-sm font-medium border transition-all ${
                   turnos.includes(t)
-                    ? 'bg-foreground text-background'
-                    : 'bg-background text-foreground'
-                } ${t !== 'Manhã' ? '-ml-0.5' : ''}`}
+                    ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                    : 'bg-background text-muted-foreground border-input hover:border-foreground/30'
+                }`}
               >
-                {t.toUpperCase()}
+                {t}
               </button>
             ))}
           </div>
@@ -140,28 +137,31 @@ export function FormularioLancamento({ obras, onSubmit }: Props) {
 
         {/* Valor */}
         <div>
-          <label className="font-mono text-xs font-bold tracking-wider block mb-1">VALOR (R$)</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={valor}
-            onChange={e => setValor(e.target.value)}
-            placeholder="0,00"
-            className={`${inputClass} font-mono`}
-          />
+          <label className="text-sm font-medium block mb-1.5">Valor (R$)</label>
+          <div className="relative">
+            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={valor}
+              onChange={e => setValor(e.target.value)}
+              placeholder="0,00"
+              className="w-full rounded-lg border border-input bg-background pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
 
         {/* Foto */}
         <div>
-          <label className="font-mono text-xs font-bold tracking-wider block mb-1">COMPROVANTE</label>
+          <label className="text-sm font-medium block mb-1.5">Comprovante</label>
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="w-full border-2 border-dashed border-foreground p-4 flex items-center justify-center gap-2 font-mono text-sm text-muted-foreground hover:bg-secondary transition-colors"
+            className="w-full rounded-lg border border-dashed border-input p-4 flex items-center justify-center gap-2 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
           >
             <Upload className="w-4 h-4" />
-            {foto ? foto.name : 'UPLOAD DE FOTO'}
+            {foto ? foto.name : 'Upload de foto'}
           </button>
           <input
             ref={fileRef}
@@ -173,12 +173,10 @@ export function FormularioLancamento({ obras, onSubmit }: Props) {
         </div>
 
         {/* Submit */}
-        <button
-          type="submit"
-          className="w-full bg-primary text-primary-foreground font-mono font-bold text-sm py-4 tracking-wider hover:opacity-90 transition-opacity"
-        >
-          LANÇAR PAGAMENTO
-        </button>
+        <Button type="submit" className="w-full py-5 text-sm font-semibold">
+          <DollarSign className="w-4 h-4 mr-1" />
+          Lançar Pagamento
+        </Button>
       </form>
     </div>
   );
