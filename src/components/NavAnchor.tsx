@@ -1,4 +1,4 @@
-import { FileText, PieChart, BarChart3, Upload } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, Tag } from 'lucide-react';
 
 interface NavAnchorProps {
   active: string;
@@ -9,6 +9,7 @@ const sections = [
   { id: 'lancamento', label: 'Lançamento', icon: FileText },
   { id: 'orcamento', label: 'Orçamento', icon: PieChart },
   { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
+  { id: 'categorias', label: 'Categorias', icon: Tag },
   { id: 'importar', label: 'Importar', icon: Upload },
 ];
 
