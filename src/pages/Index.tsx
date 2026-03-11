@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Leaf, FileText, PieChart, BarChart3, Upload, HardHat, UserPlus } from 'lucide-react';
+import { Leaf, FileText, PieChart, BarChart3, Upload, HardHat, UserPlus, Tag } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -8,10 +8,11 @@ import { ResumoSemana } from '@/components/ResumoSemana';
 import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
 import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
+import { ConfigurarCategorias } from '@/components/ConfigurarCategorias';
 import { useAppStore } from '@/lib/store';
 
 const Index = () => {
-  const { lancamentos, obras, profissionais, addLancamento, addMultipleLancamentos, addObra, addProfissional } = useAppStore();
+  const { lancamentos, obras, profissionais, categorias, addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias } = useAppStore();
   const [activeSection, setActiveSection] = useState('lancamento');
 
   const sectionRefs = {
