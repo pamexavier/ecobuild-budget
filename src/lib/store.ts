@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Lancamento, Obra, Profissional, OBRAS_MOCK, PROFISSIONAIS_MOCK } from './types';
+import { Lancamento, Obra, Profissional, OBRAS_MOCK, PROFISSIONAIS_MOCK, CATEGORIAS_ORCAMENTO_SUGESTOES } from './types';
 
 let globalLancamentos: Lancamento[] = [];
 let globalObras: Obra[] = [...OBRAS_MOCK];
 let globalProfissionais: Profissional[] = [...PROFISSIONAIS_MOCK];
-
+let globalCategorias: string[] = [...CATEGORIAS_ORCAMENTO_SUGESTOES];
 export function useAppStore() {
   const [lancamentos, setLancamentos] = useState<Lancamento[]>(globalLancamentos);
   const [obras, setObras] = useState<Obra[]>(globalObras);
