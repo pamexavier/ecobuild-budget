@@ -101,6 +101,14 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Categorias */}
+        <section ref={sectionRefs.categorias}>
+          <SectionDivider title="Categorias de Serviço" icon={Tag} />
+          <div className="mt-2 rounded-lg border border-border bg-card p-5">
+            <ConfigurarCategorias categorias={categorias} onUpdate={updateCategorias} />
+          </div>
+        </section>
+
         {/* Importar */}
         <section ref={sectionRefs.importar}>
           <SectionDivider title="Importar Dados" icon={Upload} />
