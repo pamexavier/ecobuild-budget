@@ -49,5 +49,12 @@ export function useAppStore() {
     return newP;
   }, []);
 
-  return { lancamentos, obras, profissionais, addLancamento, addMultipleLancamentos, addObra, addProfissional };
+  const [categorias, setCategorias] = useState<string[]>(globalCategorias);
+
+  const updateCategorias = useCallback((cats: string[]) => {
+    globalCategorias = cats;
+    setCategorias([...globalCategorias]);
+  }, []);
+
+  return { lancamentos, obras, profissionais, categorias, addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias };
 }
