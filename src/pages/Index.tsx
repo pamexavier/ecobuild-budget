@@ -19,6 +19,7 @@ const Index = () => {
     lancamento: useRef<HTMLDivElement>(null),
     orcamento: useRef<HTMLDivElement>(null),
     relatorios: useRef<HTMLDivElement>(null),
+    categorias: useRef<HTMLDivElement>(null),
     importar: useRef<HTMLDivElement>(null),
   };
 
