@@ -38,14 +38,15 @@ export function ResumoSemana({ lancamentos, obras }: Props) {
             <tr className="border-b border-border">
               <th className="text-xs font-medium text-muted-foreground p-3 text-left">Data</th>
               <th className="text-xs font-medium text-muted-foreground p-3 text-left">Profissional</th>
-              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Cat.</th>
+              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Cat. Orçamento</th>
+              <th className="text-xs font-medium text-muted-foreground p-3 text-left">Tipo</th>
               <th className="text-xs font-medium text-muted-foreground p-3 text-right">Valor</th>
             </tr>
           </thead>
           <tbody>
             {weekEntries.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-sm text-muted-foreground p-4 text-center">
+                <td colSpan={5} className="text-sm text-muted-foreground p-4 text-center">
                   Nenhum lançamento nesta semana
                 </td>
               </tr>
@@ -54,7 +55,14 @@ export function ResumoSemana({ lancamentos, obras }: Props) {
                 <tr key={l.id} className="border-b border-border last:border-0">
                   <td className="text-sm p-3">{l.data}</td>
                   <td className="text-sm p-3">{l.profissional}</td>
-                  <td className="text-sm p-3">{l.categoria}</td>
+                  <td className="text-sm p-3">{l.categoriaOrcamentoNome}</td>
+                  <td className="text-sm p-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
+                      l.tipo === 'diaria' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-foreground'
+                    }`}>
+                      {l.tipo === 'diaria' ? 'Diária' : 'Empreitada'}
+                    </span>
+                  </td>
                   <td className="text-sm p-3 text-right font-medium">R$ {l.valor.toFixed(2)}</td>
                 </tr>
               ))
@@ -63,7 +71,7 @@ export function ResumoSemana({ lancamentos, obras }: Props) {
           {weekEntries.length > 0 && (
             <tfoot>
               <tr className="border-t border-border bg-muted/30">
-                <td colSpan={3} className="text-sm font-semibold p-3">Total</td>
+                <td colSpan={4} className="text-sm font-semibold p-3">Total</td>
                 <td className="text-sm font-semibold p-3 text-right">R$ {total.toFixed(2)}</td>
               </tr>
             </tfoot>
