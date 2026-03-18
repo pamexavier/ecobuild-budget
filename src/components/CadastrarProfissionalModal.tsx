@@ -17,9 +17,10 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !categoria) return;
-    onAdd({ nome, categoria });
+    onAdd({ nome, categoria, chavePix: chavePix || undefined });
     setNome('');
     setCategoria('');
+    setChavePix('');
     setOpen(false);
   };
 
