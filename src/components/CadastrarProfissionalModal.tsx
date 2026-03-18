@@ -12,6 +12,7 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [chavePix, setChavePix] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
