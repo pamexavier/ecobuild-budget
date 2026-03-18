@@ -12,13 +12,15 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState('');
   const [categoria, setCategoria] = useState('');
+  const [chavePix, setChavePix] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !categoria) return;
-    onAdd({ nome, categoria });
+    onAdd({ nome, categoria, chavePix: chavePix || undefined });
     setNome('');
     setCategoria('');
+    setChavePix('');
     setOpen(false);
   };
 
@@ -61,6 +63,16 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1.5">Chave PIX (opcional)</label>
+            <input
+              type="text"
+              value={chavePix}
+              onChange={e => setChavePix(e.target.value)}
+              placeholder="CPF, e-mail, telefone ou chave aleatória"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
           </div>
           <Button type="submit" className="w-full">Cadastrar Profissional</Button>
         </form>

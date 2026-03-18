@@ -16,6 +16,7 @@ export interface Profissional {
   id: string;
   nome: string;
   categoria: string;
+  chavePix?: string;
 }
 
 export type TipoLancamento = 'diaria' | 'empreitada';
@@ -64,7 +65,7 @@ export const OBRAS_MOCK: Obra[] = [
 ];
 
 export const PROFISSIONAIS_MOCK: Profissional[] = [
-  { id: '1', nome: 'Carlos Silva', categoria: 'Pedreiro' },
-  { id: '2', nome: 'Ana Rodrigues', categoria: 'Elétrica' },
-  { id: '3', nome: 'Roberto Santos', categoria: 'Hidráulica' },
+  { id: '1', nome: 'Carlos Silva', categoria: 'Pedreiro', chavePix: 'carlos.silva@pix.com' },
+  { id: '2', nome: 'Ana Rodrigues', categoria: 'Elétrica', chavePix: '11999887766' },
+  { id: '3', nome: 'Roberto Santos', categoria: 'Hidráulica', chavePix: 'roberto.santos@email.com' },
 ];
