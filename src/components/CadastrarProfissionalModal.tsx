@@ -64,6 +64,16 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
               ))}
             </select>
           </div>
+          <div>
+            <label className="text-sm font-medium block mb-1.5">Chave PIX (opcional)</label>
+            <input
+              type="text"
+              value={chavePix}
+              onChange={e => setChavePix(e.target.value)}
+              placeholder="CPF, e-mail, telefone ou chave aleatória"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
           <Button type="submit" className="w-full">Cadastrar Profissional</Button>
         </form>
       </DialogContent>
