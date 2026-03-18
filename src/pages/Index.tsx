@@ -97,7 +97,7 @@ const Index = () => {
         <section ref={sectionRefs.relatorios}>
           <SectionDivider title="Resumo da Semana" icon={BarChart3} />
           <div className="mt-2">
-            <ResumoSemana lancamentos={lancamentos} obras={obras} />
+            <ResumoSemana lancamentos={lancamentos} obras={obras} profissionais={profissionais} />
           </div>
         </section>
 
