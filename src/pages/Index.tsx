@@ -54,16 +54,16 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-card border-b border-border">
+      <header className="bg-gradient-to-r from-[hsl(158,64%,32%)] to-[hsl(160,50%,42%)] shadow-lg">
         <div className="container py-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-primary" />
+              <div className="w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur-sm">
+                <Leaf className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-lg font-bold tracking-tight">EcoGestão Obras</h1>
-                <p className="text-xs text-muted-foreground">EcomindsX · Gestão de Pagamentos</p>
+                <h1 className="text-lg font-extrabold tracking-tight text-primary-foreground">EcoGestão Obras</h1>
+                <p className="text-xs text-primary-foreground/70">EcomindsX · Gestão de Pagamentos</p>
               </div>
             </div>
             <div className="flex gap-2">
