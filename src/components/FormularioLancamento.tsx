@@ -37,7 +37,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
     if (tipo === 'empreitada') return parseFloat(valorEmpreitada) || 0;
     const diaria = parseFloat(valorDiaria) || 0;
     if (turnos.length === 0) return 0;
-    return (diaria / 3) * turnos.length;
+    return (diaria / 2) * turnos.length;
   }, [tipo, valorDiaria, valorEmpreitada, turnos]);
 
   const toggleTurno = (t: string) => {
@@ -202,7 +202,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
                   Turno{' '}
                   {turnos.length > 1 && (
                     <span className="text-muted-foreground font-normal">
-                      ({turnos.length}/3 turnos = {((turnos.length / 3) * 100).toFixed(0)}% da diária)
+                      ({turnos.length} turno(s) = {((turnos.length / 2) * 100).toFixed(0)}% da diária)
                     </span>
                   )}
                 </label>
@@ -241,7 +241,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
                 </div>
                 {turnos.length > 0 && valorDiaria && (
                   <p className="text-xs text-primary mt-1.5 font-medium">
-                    Valor proporcional: R$ {valorCalculado.toFixed(2)} ({turnos.length}/3 turnos)
+                    Valor proporcional: R$ {valorCalculado.toFixed(2)}
                   </p>
                 )}
               </div>
