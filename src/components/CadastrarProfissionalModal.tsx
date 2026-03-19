@@ -5,7 +5,7 @@ import { UserPlus, Plus } from 'lucide-react';
 import { Profissional, CATEGORIAS } from '@/lib/types';
 
 interface Props {
-  onAdd: (p: Omit<Profissional, 'id'>) => Profissional;
+  onAdd: (p: Omit<Profissional, 'id'>) => void;
 }
 
 export function CadastrarProfissionalModal({ onAdd }: Props) {
