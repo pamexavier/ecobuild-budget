@@ -1,19 +1,23 @@
 import { FileText, PieChart, BarChart3, Upload, Tag } from 'lucide-react';
+import { AppRole } from '@/hooks/useAuth';
 
 interface NavAnchorProps {
   active: string;
   onNavigate: (section: string) => void;
+  role?: AppRole | null;
 }
 
-const sections = [
-  { id: 'lancamento', label: 'Lançamento', icon: FileText },
-  { id: 'orcamento', label: 'Orçamento', icon: PieChart },
-  { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
-  { id: 'categorias', label: 'Categorias', icon: Tag },
-  { id: 'importar', label: 'Importar', icon: Upload },
+const allSections = [
+  { id: 'lancamento', label: 'Lançamento', icon: FileText, roles: ['gestor', 'supervisor', 'encarregada'] },
+  { id: 'orcamento', label: 'Orçamento', icon: PieChart, roles: ['gestor', 'supervisor'] },
+  { id: 'relatorios', label: 'Relatórios', icon: BarChart3, roles: ['gestor', 'supervisor'] },
+  { id: 'categorias', label: 'Categorias', icon: Tag, roles: ['gestor', 'supervisor'] },
+  { id: 'importar', label: 'Importar', icon: Upload, roles: ['gestor', 'supervisor'] },
 ];
 
-export function NavAnchor({ active, onNavigate }: NavAnchorProps) {
+export function NavAnchor({ active, onNavigate, role }: NavAnchorProps) {
+  const sections = allSections.filter(s => !role || s.roles.includes(role));
+
   return (
     <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container flex">
