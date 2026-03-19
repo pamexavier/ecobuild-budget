@@ -1,60 +1,96 @@
-import { useState, useCallback } from 'react';
-import { Lancamento, Obra, Profissional, OBRAS_MOCK, PROFISSIONAIS_MOCK, CATEGORIAS_ORCAMENTO_SUGESTOES } from './types';
+import { useState, useEffect, useCallback } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { Lancamento, Obra, Profissional } from './types';
 
-let globalLancamentos: Lancamento[] = [];
-let globalObras: Obra[] = [...OBRAS_MOCK];
-let globalProfissionais: Profissional[] = [...PROFISSIONAIS_MOCK];
-let globalCategorias: string[] = [...CATEGORIAS_ORCAMENTO_SUGESTOES];
+// Conexão com o seu banco
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+export const supabase = createClient(supabaseUrl, supabaseKey);
+
 export function useAppStore() {
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>(globalLancamentos);
-  const [obras, setObras] = useState<Obra[]>(globalObras);
-  const [profissionais, setProfissionais] = useState<Profissional[]>(globalProfissionais);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [obras, setObras] = useState<Obra[]>([]);
+  const [profissionais, setProfissionais] = useState<Profissional[]>([]);
+  const [categorias, setCategorias] = useState<string[]>(['Pedreiro', 'Elétrica', 'Hidráulica', 'Pintura', 'Outros']);
 
-  const addLancamento = useCallback((l: Omit<Lancamento, 'id'>) => {
-    const newL: Lancamento = { ...l, id: crypto.randomUUID() };
-    globalLancamentos = [newL, ...globalLancamentos];
-    setLancamentos([...globalLancamentos]);
-
-    globalObras = globalObras.map(o =>
-      o.id === l.obraId ? { ...o, gastoAtual: o.gastoAtual + l.valor } : o
-    );
-    setObras([...globalObras]);
-    return newL;
+  // Puxa os dados do Supabase
+  const fetchData = useCallback(async () => {
+    // Busca as obras e suas categorias de orçamento
+    const { data: o } = await supabase.from('obras').select('*, orcamentos_categoria(*)');
+    const { data: p } = await supabase.from('profissionais').select('*');
+    const { data: l } = await supabase.from('lancamentos').select('*, obras(nome)');
+    
+    if (o) {
+      // Formata os nomes do banco (snake_case) para o React (camelCase)
+      const obrasFormatadas = o.map((obra: any) => ({
+        id: obra.id,
+        nome: obra.nome,
+        orcamentoLimite: obra.orcamento_limite,
+        gastoAtual: obra.gasto_atual,
+        categorias: obra.orcamentos_categoria?.map((cat: any) => ({
+          id: cat.id,
+          nome: cat.nome,
+          valorPrevisto: cat.valor_previsto
+        })) || []
+      }));
+      setObras(obrasFormatadas);
+    }
+    if (p) setProfissionais(p);
+    if (l) setLancamentos(l.map((item: any) => ({ ...item, obraNome: item.obras?.nome })));
   }, []);
 
-  const addMultipleLancamentos = useCallback((items: Omit<Lancamento, 'id'>[]) => {
-    const newItems = items.map(l => ({ ...l, id: crypto.randomUUID() }));
-    globalLancamentos = [...newItems, ...globalLancamentos];
-    setLancamentos([...globalLancamentos]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-    items.forEach(l => {
-      globalObras = globalObras.map(o =>
-        o.id === l.obraId ? { ...o, gastoAtual: o.gastoAtual + l.valor } : o
-      );
-    });
-    setObras([...globalObras]);
-  }, []);
+  // Salva Lançamento
+  const addLancamento = useCallback(async (l: Omit<Lancamento, 'id'>) => {
+    await supabase.from('lancamentos').insert([{
+      obra_id: l.obraId,
+      profissional_id: l.profissionalId,
+      tipo: l.tipo,
+      valor: l.valor,
+      turnos: l.turnos,
+      data: l.data
+    }]);
+    fetchData(); // Atualiza a tela
+  }, [fetchData]);
 
-  const addObra = useCallback((o: Omit<Obra, 'id' | 'gastoAtual'>) => {
-    const newO: Obra = { ...o, id: crypto.randomUUID(), gastoAtual: 0 };
-    globalObras = [...globalObras, newO];
-    setObras([...globalObras]);
-    return newO;
-  }, []);
+  // Salva Obra + Categorias de Orçamento
+  const addObra = useCallback(async (o: Omit<Obra, 'id' | 'gastoAtual'>) => {
+    const { data: novaObra } = await supabase.from('obras').insert([{
+      nome: o.nome,
+      orcamento_limite: o.orcamentoLimite
+    }]).select().single();
 
-  const addProfissional = useCallback((p: Omit<Profissional, 'id'>) => {
-    const newP: Profissional = { ...p, id: crypto.randomUUID() };
-    globalProfissionais = [...globalProfissionais, newP];
-    setProfissionais([...globalProfissionais]);
-    return newP;
-  }, []);
+    if (novaObra && o.categorias) {
+      const categoriasBanco = o.categorias.map(cat => ({
+        obra_id: novaObra.id,
+        nome: cat.nome,
+        valor_previsto: cat.valorPrevisto
+      }));
+      await supabase.from('orcamentos_categoria').insert(categoriasBanco);
+    }
+    fetchData();
+    return novaObra;
+  }, [fetchData]);
 
-  const [categorias, setCategorias] = useState<string[]>(globalCategorias);
+  // Salva Profissional com PIX
+  const addProfissional = useCallback(async (p: Omit<Profissional, 'id'>) => {
+    const { data } = await supabase.from('profissionais').insert([{
+      nome: p.nome,
+      categoria: p.categoria,
+      chave_pix: p.chavePix
+    }]).select().single();
+    fetchData();
+    return data;
+  }, [fetchData]);
 
-  const updateCategorias = useCallback((cats: string[]) => {
-    globalCategorias = cats;
-    setCategorias([...globalCategorias]);
-  }, []);
+  // Funções secundárias da tela
+  const updateCategorias = useCallback((cats: string[]) => setCategorias(cats), []);
+  const addMultipleLancamentos = useCallback(async (items: any[]) => {}, []);
 
-  return { lancamentos, obras, profissionais, categorias, addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias };
+  return { 
+    lancamentos, obras, profissionais, categorias, 
+    addLancamento, addObra, addProfissional, updateCategorias, addMultipleLancamentos, 
+    fetchData 
+  };
 }

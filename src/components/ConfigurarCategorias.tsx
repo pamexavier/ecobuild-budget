@@ -8,7 +8,7 @@ interface Props {
   onUpdate: (categorias: string[]) => void;
 }
 
-export function ConfigurarCategorias({ categorias, onUpdate }: Props) {
+export function ConfigurarCategorias({ categorias = [], onUpdate }: Props) {
   const [nova, setNova] = useState('');
 
   const addCategoria = () => {
