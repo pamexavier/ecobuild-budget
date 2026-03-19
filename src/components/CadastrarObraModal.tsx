@@ -5,7 +5,7 @@ import { HardHat, Plus, Trash2, Layers } from 'lucide-react';
 import { Obra, OrcamentoCategoria, CATEGORIAS_ORCAMENTO_SUGESTOES } from '@/lib/types';
 
 interface Props {
-  onAdd: (o: Omit<Obra, 'id' | 'gastoAtual'>) => Obra;
+  onAdd: (o: Omit<Obra, 'id' | 'gastoAtual'>) => void;
 }
 
 export function CadastrarObraModal({ onAdd }: Props) {
@@ -60,96 +60,49 @@ export function CadastrarObraModal({ onAdd }: Props) {
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-5 mt-2">
-          {/* Nome */}
           <div>
             <label className="text-sm font-medium block mb-1.5">Nome da Obra</label>
-            <input
-              type="text"
-              value={nome}
-              onChange={e => setNome(e.target.value)}
-              placeholder="Ex: Residencial Parque Verde"
-              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+            <input type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Residencial Parque Verde" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
-          {/* Categorias de Orçamento */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold">Definição de Orçamento por Categoria</span>
             </div>
 
-            {/* Lista de categorias adicionadas */}
             {categorias.length > 0 && (
               <div className="space-y-2">
                 {categorias.map(cat => (
                   <div key={cat.id} className="flex items-center justify-between bg-card rounded-lg border border-border px-3 py-2.5">
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium">{cat.nome}</span>
-                    </div>
+                    <span className="text-sm font-medium">{cat.nome}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold text-primary">
-                        R$ {cat.valorPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeCategoria(cat.id)}
-                        className="text-muted-foreground hover:text-destructive transition-colors"
-                      >
+                      <span className="text-sm font-semibold text-primary">R$ {cat.valorPrevisto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <button type="button" onClick={() => removeCategoria(cat.id)} className="text-muted-foreground hover:text-destructive transition-colors">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 ))}
-                {/* Total */}
                 <div className="flex justify-between items-center pt-2 border-t border-border">
                   <span className="text-sm font-semibold">Orçamento Total</span>
-                  <span className="text-sm font-bold text-primary">
-                    R$ {totalOrcamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+                  <span className="text-sm font-bold text-primary">R$ {totalOrcamento.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             )}
 
-            {/* Adicionar nova categoria */}
             <div className="flex flex-col gap-3">
-              <div className="flex-1">
-                <select
-                  value={novaCategoria}
-                  onChange={e => setNovaCategoria(e.target.value)}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">Categoria...</option>
-                  {CATEGORIAS_ORCAMENTO_SUGESTOES
-                    .filter(s => !categorias.some(c => c.nome === s))
-                    .map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                </select>
-              </div>
-              <div className="w-full">
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={novoValor}
-                  onChange={e => setNovoValor(e.target.value)}
-                  placeholder="Valor (R$)"
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-              <Button type="button" variant="outline" size="sm" onClick={addCategoria} className="shrink-0">
-                <Plus className="w-4 h-4" />
-              </Button>
+              <select value={novaCategoria} onChange={e => setNovaCategoria(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Categoria...</option>
+                {CATEGORIAS_ORCAMENTO_SUGESTOES.filter(s => !categorias.some(c => c.nome === s)).map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <input type="number" step="0.01" min="0" value={novoValor} onChange={e => setNovoValor(e.target.value)} placeholder="Valor (R$)" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <Button type="button" variant="outline" size="sm" onClick={addCategoria} className="shrink-0"><Plus className="w-4 h-4" /></Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Adicione as categorias e seus valores orçados. O total será o limite da obra.
-            </p>
+            <p className="text-xs text-muted-foreground">Adicione as categorias e seus valores orçados.</p>
           </div>
 
-          <Button type="submit" className="w-full" disabled={!nome}>
-            Cadastrar Obra
-          </Button>
+          <Button type="submit" className="w-full" disabled={!nome}>Cadastrar Obra</Button>
         </form>
       </DialogContent>
     </Dialog>
