@@ -112,7 +112,7 @@ export function CadastrarObraModal({ onAdd }: Props) {
             )}
 
             {/* Adicionar nova categoria */}
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               <div className="flex-1">
                 <select
                   value={novaCategoria}
@@ -127,7 +127,7 @@ export function CadastrarObraModal({ onAdd }: Props) {
                     ))}
                 </select>
               </div>
-              <div className="w-32">
+              <div className="w-full">
                 <input
                   type="number"
                   step="0.01"

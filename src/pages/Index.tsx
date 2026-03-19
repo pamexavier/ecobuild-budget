@@ -56,7 +56,7 @@ const Index = () => {
       {/* Header */}
       <header className="bg-gradient-to-r from-[hsl(158,64%,32%)] to-[hsl(160,50%,42%)] shadow-lg">
         <div className="container py-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur-sm">
                 <Leaf className="w-5 h-5 text-primary-foreground" />
