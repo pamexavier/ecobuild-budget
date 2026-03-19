@@ -147,7 +147,7 @@ export function CadastrarObraModal({ onAdd }: Props) {
             </p>
           </div>
 
-          <Button type="submit" className="w-full" disabled={!nome || categorias.length === 0}>
+          <Button type="submit" className="w-full" disabled={!nome}>
             Cadastrar Obra
           </Button>
         </form>
