@@ -14,16 +14,171 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lancamentos: {
+        Row: {
+          created_at: string
+          data: string
+          id: string
+          obra_id: string
+          profissional_id: string
+          tipo: string
+          turnos: string[] | null
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          id?: string
+          obra_id: string
+          profissional_id: string
+          tipo?: string
+          turnos?: string[] | null
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          id?: string
+          obra_id?: string
+          profissional_id?: string
+          tipo?: string
+          turnos?: string[] | null
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lancamentos_profissional_id_fkey"
+            columns: ["profissional_id"]
+            isOneToOne: false
+            referencedRelation: "profissionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      obras: {
+        Row: {
+          created_at: string
+          gasto_atual: number
+          id: string
+          nome: string
+          orcamento_limite: number
+        }
+        Insert: {
+          created_at?: string
+          gasto_atual?: number
+          id?: string
+          nome: string
+          orcamento_limite?: number
+        }
+        Update: {
+          created_at?: string
+          gasto_atual?: number
+          id?: string
+          nome?: string
+          orcamento_limite?: number
+        }
+        Relationships: []
+      }
+      orcamentos_categoria: {
+        Row: {
+          id: string
+          nome: string
+          obra_id: string
+          valor_previsto: number
+        }
+        Insert: {
+          id?: string
+          nome: string
+          obra_id: string
+          valor_previsto?: number
+        }
+        Update: {
+          id?: string
+          nome?: string
+          obra_id?: string
+          valor_previsto?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orcamentos_categoria_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profissionais: {
+        Row: {
+          categoria: string
+          chave_pix: string | null
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          categoria: string
+          chave_pix?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          categoria?: string
+          chave_pix?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "gestor" | "supervisor" | "encarregada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +305,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["gestor", "supervisor", "encarregada"],
+    },
   },
 } as const
