@@ -110,6 +110,7 @@ export function useAppStore() {
       nome: data.nome,
       categoria: data.categoria,
       chave_pix: data.chavePix,
+      cpf: data.cpf,
     }).eq('id', id);
     fetchData();
   }, [fetchData]);
