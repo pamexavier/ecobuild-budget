@@ -29,7 +29,7 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/gerenciar-acessos" element={
-              <ProtectedRoute allowedRoles={['gestor']}>
+              <ProtectedRoute requiredPermission="podeGerenciarAcessos">
                 <GerenciarAcessos />
               </ProtectedRoute>
             } />
