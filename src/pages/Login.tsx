@@ -1,33 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, LogIn, UserPlus } from 'lucide-react';
+import { Leaf, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = isSignUp
-      ? await signUp(email, password)
-      : await signIn(email, password);
+    const { error } = await signIn(email, password);
 
     setLoading(false);
 
     if (error) {
-      toast({ title: 'Erro', description: error.message, variant: 'destructive' });
-    } else if (isSignUp) {
-      toast({ title: 'Cadastro realizado!', description: 'Verifique seu email para confirmar.' });
+      toast({ title: 'Erro ao entrar', description: error.message, variant: 'destructive' });
     } else {
       navigate('/');
     }
@@ -47,7 +42,7 @@ const Login = () => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border shadow-2xl p-6 space-y-4">
-          <h2 className="text-lg font-bold text-center">{isSignUp ? 'Criar Conta' : 'Entrar'}</h2>
+          <h2 className="text-lg font-bold text-center">Entrar no Sistema</h2>
           
           <div>
             <label className="text-sm font-medium block mb-1.5">Email</label>
@@ -75,17 +70,9 @@ const Login = () => {
           </div>
 
           <Button type="submit" className="w-full py-5" disabled={loading}>
-            {isSignUp ? <UserPlus className="w-4 h-4 mr-2" /> : <LogIn className="w-4 h-4 mr-2" />}
-            {loading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}
+            <LogIn className="w-4 h-4 mr-2" />
+            {loading ? 'Aguarde...' : 'Entrar'}
           </Button>
-
-          <button
-            type="button"
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="w-full text-sm text-muted-foreground hover:text-foreground text-center"
-          >
-            {isSignUp ? 'Já tem conta? Entrar' : 'Não tem conta? Criar'}
-          </button>
         </form>
       </div>
     </div>
