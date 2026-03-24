@@ -1,13 +1,15 @@
 import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, DollarSign, Check, Sun, Moon, Sunset, Briefcase, Clock } from 'lucide-react';
+import { Upload, DollarSign, Check, Sun, Moon, Sunset, Briefcase, Clock, UserPlus } from 'lucide-react';
 import { Obra, Profissional, Turno, Lancamento, TipoLancamento } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { CadastrarProfissionalModal } from './CadastrarProfissionalModal';
 
 interface Props {
   obras: Obra[];
   profissionais: Profissional[];
   onSubmit: (l: Omit<Lancamento, 'id'>) => void;
+  onAddProfissional?: (p: Omit<Profissional, 'id'>) => void;
 }
 
 const TURNOS: { label: Turno; icon: typeof Sun }[] = [
