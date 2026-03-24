@@ -34,6 +34,7 @@ export function useAppStore() {
       nome: prof.nome,
       categoria: prof.categoria,
       chavePix: prof.chave_pix,
+      cpf: prof.cpf,
     })));
     if (l) setLancamentos(l.map((item: any) => ({ ...item, obraNome: item.obras?.nome })));
   }, []);
