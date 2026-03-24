@@ -119,6 +119,7 @@ export type Database = {
         Row: {
           categoria: string
           chave_pix: string | null
+          cpf: string | null
           created_at: string
           id: string
           nome: string
@@ -126,6 +127,7 @@ export type Database = {
         Insert: {
           categoria: string
           chave_pix?: string | null
+          cpf?: string | null
           created_at?: string
           id?: string
           nome: string
@@ -133,6 +135,7 @@ export type Database = {
         Update: {
           categoria?: string
           chave_pix?: string | null
+          cpf?: string | null
           created_at?: string
           id?: string
           nome?: string
