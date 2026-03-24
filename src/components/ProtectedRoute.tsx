@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = '/login' }
 
   if (!user) return <Navigate to={redirectTo} replace />;
 
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
+  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
     return <Navigate to="/" replace />;
   }
 
