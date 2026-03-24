@@ -18,7 +18,7 @@ const TURNOS: { label: Turno; icon: typeof Sun }[] = [
   { label: 'Noite', icon: Moon },
 ];
 
-export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) {
+export function FormularioLancamento({ obras, profissionais, onSubmit, onAddProfissional }: Props) {
   const [obraId, setObraId] = useState('');
   const [profissionalId, setProfissionalId] = useState('');
   const [categoriaOrcamentoId, setCategoriaOrcamentoId] = useState('');
