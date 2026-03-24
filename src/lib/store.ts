@@ -74,7 +74,8 @@ export function useAppStore() {
     await supabase.from('profissionais').insert([{
       nome: p.nome,
       categoria: p.categoria,
-      chave_pix: p.chavePix
+      chave_pix: p.chavePix,
+      cpf: p.cpf
     }]);
     fetchData();
   }, [fetchData]);
