@@ -1,14 +1,14 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth, AppRole } from '@/hooks/useAuth';
+import { useAuth, UserPermissions } from '@/hooks/useAuth';
 
 interface Props {
   children: React.ReactNode;
-  allowedRoles?: AppRole[];
+  requiredPermission?: keyof UserPermissions;
   redirectTo?: string;
 }
 
-export function ProtectedRoute({ children, allowedRoles, redirectTo = '/login' }: Props) {
-  const { user, role, loading } = useAuth();
+export function ProtectedRoute({ children, requiredPermission, redirectTo = '/login' }: Props) {
+  const { user, permissions, loading } = useAuth();
 
   if (loading) {
     return (
@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, allowedRoles, redirectTo = '/login' }
 
   if (!user) return <Navigate to={redirectTo} replace />;
 
-  if (allowedRoles && (!role || !allowedRoles.includes(role))) {
+  if (requiredPermission && !permissions[requiredPermission]) {
     return <Navigate to="/" replace />;
   }
 

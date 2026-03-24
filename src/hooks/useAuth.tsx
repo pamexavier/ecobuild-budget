@@ -4,14 +4,32 @@ import { supabase } from '@/lib/store';
 
 export type AppRole = 'gestor' | 'supervisor' | 'encarregada';
 
+export interface UserPermissions {
+  podeCriarObra: boolean;
+  podeEditarOrcamento: boolean;
+  podeLancarDespesa: boolean;
+  podeCadastrarProfissional: boolean;
+  podeGerenciarAcessos: boolean;
+}
+
+const DEFAULT_PERMISSIONS: UserPermissions = {
+  podeCriarObra: false,
+  podeEditarOrcamento: false,
+  podeLancarDespesa: false,
+  podeCadastrarProfissional: false,
+  podeGerenciarAcessos: false,
+};
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   role: AppRole | null;
+  permissions: UserPermissions;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  // Legacy helpers (now derived from permissions)
   isGestor: boolean;
   isSupervisor: boolean;
   isEncarregada: boolean;
@@ -23,11 +41,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
+  const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
   const [loading, setLoading] = useState(true);
 
-  const fetchRole = async (userId: string) => {
-    const { data } = await supabase.rpc('get_user_role', { _user_id: userId });
-    setRole(data as AppRole | null);
+  const fetchRoleAndPermissions = async (userId: string) => {
+    const { data } = await supabase
+      .from('user_roles')
+      .select('role, pode_criar_obra, pode_editar_orcamento, pode_lancar_despesa, pode_cadastrar_profissional, pode_gerenciar_acessos')
+      .eq('user_id', userId)
+      .single();
+
+    if (data) {
+      setRole(data.role as AppRole);
+      setPermissions({
+        podeCriarObra: data.pode_criar_obra ?? false,
+        podeEditarOrcamento: data.pode_editar_orcamento ?? false,
+        podeLancarDespesa: data.pode_lancar_despesa ?? false,
+        podeCadastrarProfissional: data.pode_cadastrar_profissional ?? false,
+        podeGerenciarAcessos: data.pode_gerenciar_acessos ?? false,
+      });
+    } else {
+      setRole(null);
+      setPermissions(DEFAULT_PERMISSIONS);
+    }
   };
 
   useEffect(() => {
@@ -36,10 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          // Use setTimeout to avoid Supabase deadlock
-          setTimeout(() => fetchRole(session.user.id), 0);
+          setTimeout(() => fetchRoleAndPermissions(session.user.id), 0);
         } else {
           setRole(null);
+          setPermissions(DEFAULT_PERMISSIONS);
         }
         setLoading(false);
       }
@@ -49,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchRole(session.user.id);
+        fetchRoleAndPermissions(session.user.id);
       }
       setLoading(false);
     });
@@ -63,9 +99,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password,
+    const { error } = await supabase.auth.signUp({
+      email, password,
       options: { emailRedirectTo: window.location.origin }
     });
     return { error };
@@ -76,11 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRole(null);
+    setPermissions(DEFAULT_PERMISSIONS);
   };
 
   return (
     <AuthContext.Provider value={{
-      user, session, role, loading,
+      user, session, role, permissions, loading,
       signIn, signUp, signOut,
       isGestor: role === 'gestor',
       isSupervisor: role === 'supervisor',

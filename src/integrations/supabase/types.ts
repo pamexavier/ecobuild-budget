@@ -146,18 +146,33 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          pode_cadastrar_profissional: boolean
+          pode_criar_obra: boolean
+          pode_editar_orcamento: boolean
+          pode_gerenciar_acessos: boolean
+          pode_lancar_despesa: boolean
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          pode_cadastrar_profissional?: boolean
+          pode_criar_obra?: boolean
+          pode_editar_orcamento?: boolean
+          pode_gerenciar_acessos?: boolean
+          pode_lancar_despesa?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          pode_cadastrar_profissional?: boolean
+          pode_criar_obra?: boolean
+          pode_editar_orcamento?: boolean
+          pode_gerenciar_acessos?: boolean
+          pode_lancar_despesa?: boolean
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }

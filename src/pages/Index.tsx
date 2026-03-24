@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, FileText, PieChart, BarChart3, Upload, Tag, Shield, LogOut, Trash2, Pencil } from 'lucide-react';
+import { Leaf, FileText, PieChart, BarChart3, Upload, Tag, Shield, LogOut, Trash2 } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -15,19 +15,13 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
-const ROLE_LABELS = {
-  gestor: 'Gestor',
-  supervisor: 'Supervisor',
-  encarregada: 'Encarregada',
-};
-
 const Index = () => {
   const { 
     lancamentos, obras, profissionais, categorias, 
     addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias,
     deleteObra, deleteProfissional, deleteLancamento
   } = useAppStore();
-  const { user, role, isGestor, isEncarregada, signOut } = useAuth();
+  const { user, role, permissions, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('lancamento');
@@ -91,12 +85,10 @@ const Index = () => {
     toast({ title: 'Lançamento excluído' });
   };
 
-  // Encarregada only sees lançamento
-  const showFinancial = !isEncarregada;
+  const showFinancial = permissions.podeEditarOrcamento;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="bg-gradient-to-r from-[hsl(158,64%,32%)] to-[hsl(160,50%,42%)] shadow-lg">
         <div className="container py-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -107,20 +99,18 @@ const Index = () => {
               <div>
                 <h1 className="text-lg font-extrabold tracking-tight text-primary-foreground">EcoGestão Obras</h1>
                 <p className="text-xs text-primary-foreground/70">
-                  {user?.email} · {role ? ROLE_LABELS[role] : '...'}
+                  {user?.email} · {role ?? '...'}
                 </p>
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              {isGestor && (
-                <>
-                  <CadastrarObraModal onAdd={addObra} />
-                  <CadastrarProfissionalModal onAdd={addProfissional} />
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/gerenciar-acessos')}>
-                    <Shield className="w-4 h-4" />
-                    Acessos
-                  </Button>
-                </>
+              {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} />}
+              {permissions.podeCadastrarProfissional && <CadastrarProfissionalModal onAdd={addProfissional} />}
+              {permissions.podeGerenciarAcessos && (
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/gerenciar-acessos')}>
+                  <Shield className="w-4 h-4" />
+                  Acessos
+                </Button>
               )}
               <Button variant="outline" size="sm" className="gap-1.5" onClick={handleLogout}>
                 <LogOut className="w-4 h-4" />
@@ -131,45 +121,44 @@ const Index = () => {
         </div>
       </header>
 
-      <NavAnchor active={activeSection} onNavigate={navigateTo} role={role} />
+      <NavAnchor active={activeSection} onNavigate={navigateTo} permissions={permissions} />
 
       <main className="container pb-24 space-y-10">
-        {/* Lançamento */}
-        <section ref={sectionRefs.lancamento} className="pt-8">
-          <SectionDivider title="Formulário de Lançamento" icon={FileText} />
-          <div className="mt-2 rounded-lg border border-border bg-card p-5">
-            <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} onAddProfissional={addProfissional} />
-          </div>
-
-          {/* Lista de Lançamentos com Excluir (Gestor) */}
-          {lancamentos.length > 0 && (
-            <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
-              <div className="px-4 py-3 bg-muted/30 border-b border-border">
-                <span className="text-sm font-semibold">Últimos Lançamentos</span>
-              </div>
-              <div className="divide-y divide-border max-h-64 overflow-y-auto">
-                {lancamentos.slice(-10).reverse().map(l => (
-                  <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                    <div className="flex-1 min-w-0">
-                      <span className="font-medium">{l.profissional || l.profissionalId}</span>
-                      <span className="text-muted-foreground"> · {l.obraNome} · </span>
-                      <span className="font-semibold text-primary">R$ {l.valor?.toFixed(2)}</span>
-                      <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
-                    </div>
-                    {isGestor && (
-                      <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
+        {permissions.podeLancarDespesa && (
+          <section ref={sectionRefs.lancamento} className="pt-8">
+            <SectionDivider title="Formulário de Lançamento" icon={FileText} />
+            <div className="mt-2 rounded-lg border border-border bg-card p-5">
+              <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined} />
             </div>
-          )}
-        </section>
 
-        {/* Obras list with delete (Gestor only) */}
-        {isGestor && obras.length > 0 && (
+            {lancamentos.length > 0 && (
+              <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
+                <div className="px-4 py-3 bg-muted/30 border-b border-border">
+                  <span className="text-sm font-semibold">Últimos Lançamentos</span>
+                </div>
+                <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                  {lancamentos.slice(-10).reverse().map(l => (
+                    <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium">{l.profissional || l.profissionalId}</span>
+                        <span className="text-muted-foreground"> · {l.obraNome} · </span>
+                        <span className="font-semibold text-primary">R$ {l.valor?.toFixed(2)}</span>
+                        <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
+                      </div>
+                      {permissions.podeGerenciarAcessos && (
+                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {permissions.podeCriarObra && obras.length > 0 && (
           <section>
             <SectionDivider title="Obras Cadastradas" icon={PieChart} />
             <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
@@ -190,8 +179,7 @@ const Index = () => {
           </section>
         )}
 
-        {/* Profissionais list with delete (Gestor only) */}
-        {isGestor && profissionais.length > 0 && (
+        {permissions.podeCadastrarProfissional && profissionais.length > 0 && (
           <section>
             <SectionDivider title="Profissionais Cadastrados" icon={Tag} />
             <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
@@ -211,7 +199,6 @@ const Index = () => {
           </section>
         )}
 
-        {/* Orçamento - hidden for Encarregada */}
         {showFinancial && (
           <section ref={sectionRefs.orcamento}>
             <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
@@ -221,7 +208,6 @@ const Index = () => {
           </section>
         )}
 
-        {/* Relatórios - hidden for Encarregada */}
         {showFinancial && (
           <section ref={sectionRefs.relatorios}>
             <SectionDivider title="Resumo da Semana" icon={BarChart3} />
@@ -231,7 +217,6 @@ const Index = () => {
           </section>
         )}
 
-        {/* Categorias - hidden for Encarregada */}
         {showFinancial && (
           <section ref={sectionRefs.categorias}>
             <SectionDivider title="Categorias de Serviço" icon={Tag} />
@@ -241,7 +226,6 @@ const Index = () => {
           </section>
         )}
 
-        {/* Importar - hidden for Encarregada */}
         {showFinancial && (
           <section ref={sectionRefs.importar}>
             <SectionDivider title="Importar Dados" icon={Upload} />

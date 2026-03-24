@@ -1,71 +1,76 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, Shield, ChevronLeft, Users } from 'lucide-react';
+import { Shield, ChevronLeft, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useAuth, AppRole } from '@/hooks/useAuth';
+import { Switch } from '@/components/ui/switch';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 
-interface UserWithRole {
+interface UserWithPermissions {
   user_id: string;
-  email: string;
-  role: AppRole;
+  role: string;
+  pode_criar_obra: boolean;
+  pode_editar_orcamento: boolean;
+  pode_lancar_despesa: boolean;
+  pode_cadastrar_profissional: boolean;
+  pode_gerenciar_acessos: boolean;
 }
 
-const ROLE_LABELS: Record<AppRole, string> = {
-  gestor: '🔑 Gestor (Acesso Total)',
-  supervisor: '📊 Supervisor (Intermediário)',
-  encarregada: '📝 Encarregada (Lançamentos)',
+const PERMISSION_LABELS: Record<string, string> = {
+  pode_criar_obra: '🏗️ Criar Obra',
+  pode_editar_orcamento: '💰 Editar Orçamento',
+  pode_lancar_despesa: '📝 Lançar Despesa',
+  pode_cadastrar_profissional: '👷 Cadastrar Profissional',
+  pode_gerenciar_acessos: '🔑 Gerenciar Acessos',
 };
 
+const PERMISSION_KEYS = Object.keys(PERMISSION_LABELS) as (keyof typeof PERMISSION_LABELS)[];
+
 const GerenciarAcessos = () => {
-  const { isGestor, loading: authLoading } = useAuth();
+  const { permissions, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [users, setUsers] = useState<UserWithPermissions[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !isGestor) {
+    if (!authLoading && !permissions.podeGerenciarAcessos) {
       navigate('/');
     }
-  }, [authLoading, isGestor, navigate]);
+  }, [authLoading, permissions.podeGerenciarAcessos, navigate]);
 
   const fetchUsers = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('user_roles')
-      .select('user_id, role');
-    
+      .select('user_id, role, pode_criar_obra, pode_editar_orcamento, pode_lancar_despesa, pode_cadastrar_profissional, pode_gerenciar_acessos');
+
     if (data) {
-      // Get emails from auth - we use the user_id to show what we can
-      const usersWithEmail: UserWithRole[] = data.map((d: any) => ({
-        user_id: d.user_id,
-        email: d.user_id.substring(0, 8) + '...',
-        role: d.role,
-      }));
-      setUsers(usersWithEmail);
+      setUsers(data as UserWithPermissions[]);
     }
     setLoading(false);
   };
 
   useEffect(() => { fetchUsers(); }, []);
 
-  const updateRole = async (userId: string, newRole: AppRole) => {
+  const togglePermission = async (userId: string, field: string, currentValue: boolean) => {
     const { error } = await supabase
       .from('user_roles')
-      .update({ role: newRole })
+      .update({ [field]: !currentValue })
       .eq('user_id', userId);
 
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
     } else {
+      setUsers(prev => prev.map(u =>
+        u.user_id === userId ? { ...u, [field]: !currentValue } : u
+      ));
       toast({ title: 'Permissão atualizada!' });
-      fetchUsers();
     }
   };
 
-  if (authLoading || !isGestor) return null;
+  if (authLoading || !permissions.podeGerenciarAcessos) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,15 +83,15 @@ const GerenciarAcessos = () => {
             <Shield className="w-5 h-5 text-primary-foreground" />
             <div>
               <h1 className="text-lg font-extrabold text-primary-foreground">Gerenciar Acessos</h1>
-              <p className="text-xs text-primary-foreground/70">Controle de permissões do sistema</p>
+              <p className="text-xs text-primary-foreground/70">Controle granular de permissões</p>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="container py-8 max-w-2xl">
-        <div className="rounded-lg border border-border bg-card p-5 space-y-4">
-          <div className="flex items-center gap-2 mb-2">
+      <main className="container py-8 max-w-3xl">
+        <div className="rounded-lg border border-border bg-card p-5 space-y-6">
+          <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />
             <h2 className="text-base font-bold">Usuários Cadastrados</h2>
           </div>
@@ -96,22 +101,27 @@ const GerenciarAcessos = () => {
           ) : users.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">Nenhum usuário cadastrado</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {users.map(u => (
-                <div key={u.user_id} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                  <div className="flex-1 min-w-0">
+                <div key={u.user_id} className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                  <div>
                     <p className="text-sm font-medium font-mono truncate">{u.user_id}</p>
-                    <p className="text-xs text-muted-foreground">{ROLE_LABELS[u.role]}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{u.role}</p>
                   </div>
-                  <select
-                    value={u.role}
-                    onChange={e => updateRole(u.user_id, e.target.value as AppRole)}
-                    className="rounded-lg border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="gestor">Gestor</option>
-                    <option value="supervisor">Supervisor</option>
-                    <option value="encarregada">Encarregada</option>
-                  </select>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {PERMISSION_KEYS.map(key => (
+                      <label
+                        key={key}
+                        className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+                      >
+                        <span className="text-sm">{PERMISSION_LABELS[key]}</span>
+                        <Switch
+                          checked={u[key as keyof UserWithPermissions] as boolean}
+                          onCheckedChange={() => togglePermission(u.user_id, key, u[key as keyof UserWithPermissions] as boolean)}
+                        />
+                      </label>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
