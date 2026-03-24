@@ -125,11 +125,23 @@ export function FormularioLancamento({ obras, profissionais, onSubmit, onAddProf
           )}
           <div>
             <label className="text-sm font-medium block mb-1.5">Profissional</label>
-            <select value={profissionalId} onChange={e => setProfissionalId(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="">Selecione o profissional</option>
-              {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome} — {p.categoria}</option>)}
-            </select>
-            {selectedProf && <span className="text-xs text-muted-foreground mt-1 block">Categoria: {selectedProf.categoria}</span>}
+            <div className="flex gap-2">
+              <select value={profissionalId} onChange={e => setProfissionalId(e.target.value)} className="flex-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring">
+                <option value="">Selecione o profissional</option>
+                {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome} — {p.categoria}</option>)}
+              </select>
+              {onAddProfissional && (
+                <CadastrarProfissionalModal
+                  onAdd={onAddProfissional}
+                  trigger={
+                    <Button type="button" variant="outline" size="icon" className="shrink-0" title="Cadastrar novo profissional">
+                      <UserPlus className="w-4 h-4" />
+                    </Button>
+                  }
+                />
+              )}
+            </div>
+            {selectedProf && <span className="text-xs text-muted-foreground mt-1 block">Categoria: {selectedProf.categoria}{selectedProf.cpf && ` · CPF: ${selectedProf.cpf}`}</span>}
           </div>
         </div>
 
