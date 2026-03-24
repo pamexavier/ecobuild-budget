@@ -121,7 +121,7 @@ const Index = () => {
         </div>
       </header>
 
-      <NavAnchor active={activeSection} onNavigate={navigateTo} role={role} />
+      <NavAnchor active={activeSection} onNavigate={navigateTo} permissions={permissions} />
 
       <main className="container pb-24 space-y-10">
         {permissions.podeLancarDespesa && (

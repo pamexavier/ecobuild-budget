@@ -1,22 +1,25 @@
 import { FileText, PieChart, BarChart3, Upload, Tag } from 'lucide-react';
-import { AppRole } from '@/hooks/useAuth';
+import { UserPermissions } from '@/hooks/useAuth';
 
 interface NavAnchorProps {
   active: string;
   onNavigate: (section: string) => void;
-  role?: AppRole | null;
+  permissions?: UserPermissions;
+  role?: string | null; // kept for backward compat
 }
 
 const allSections = [
-  { id: 'lancamento', label: 'Lançamento', icon: FileText, roles: ['gestor', 'supervisor', 'encarregada'] },
-  { id: 'orcamento', label: 'Orçamento', icon: PieChart, roles: ['gestor', 'supervisor'] },
-  { id: 'relatorios', label: 'Relatórios', icon: BarChart3, roles: ['gestor', 'supervisor'] },
-  { id: 'categorias', label: 'Categorias', icon: Tag, roles: ['gestor', 'supervisor'] },
-  { id: 'importar', label: 'Importar', icon: Upload, roles: ['gestor', 'supervisor'] },
+  { id: 'lancamento', label: 'Lançamento', icon: FileText, permKey: 'podeLancarDespesa' as keyof UserPermissions },
+  { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+  { id: 'relatorios', label: 'Relatórios', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+  { id: 'categorias', label: 'Categorias', icon: Tag, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+  { id: 'importar', label: 'Importar', icon: Upload, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
 ];
 
-export function NavAnchor({ active, onNavigate, role }: NavAnchorProps) {
-  const sections = allSections.filter(s => !role || s.roles.includes(role));
+export function NavAnchor({ active, onNavigate, permissions }: NavAnchorProps) {
+  const sections = permissions
+    ? allSections.filter(s => permissions[s.permKey])
+    : allSections;
 
   return (
     <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border shadow-sm">
