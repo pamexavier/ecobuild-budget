@@ -138,7 +138,7 @@ const Index = () => {
         <section ref={sectionRefs.lancamento} className="pt-8">
           <SectionDivider title="Formulário de Lançamento" icon={FileText} />
           <div className="mt-2 rounded-lg border border-border bg-card p-5">
-            <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} />
+            <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} onAddProfissional={addProfissional} />
           </div>
 
           {/* Lista de Lançamentos com Excluir (Gestor) */}

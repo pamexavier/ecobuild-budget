@@ -17,6 +17,7 @@ export interface Profissional {
   nome: string;
   categoria: string;
   chavePix?: string;
+  cpf?: string;
 }
 
 export type TipoLancamento = 'diaria' | 'empreitada';

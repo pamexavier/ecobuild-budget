@@ -34,6 +34,7 @@ export function useAppStore() {
       nome: prof.nome,
       categoria: prof.categoria,
       chavePix: prof.chave_pix,
+      cpf: prof.cpf,
     })));
     if (l) setLancamentos(l.map((item: any) => ({ ...item, obraNome: item.obras?.nome })));
   }, []);
@@ -73,7 +74,8 @@ export function useAppStore() {
     await supabase.from('profissionais').insert([{
       nome: p.nome,
       categoria: p.categoria,
-      chave_pix: p.chavePix
+      chave_pix: p.chavePix,
+      cpf: p.cpf
     }]);
     fetchData();
   }, [fetchData]);
@@ -108,6 +110,7 @@ export function useAppStore() {
       nome: data.nome,
       categoria: data.categoria,
       chave_pix: data.chavePix,
+      cpf: data.cpf,
     }).eq('id', id);
     fetchData();
   }, [fetchData]);

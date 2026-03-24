@@ -6,19 +6,22 @@ import { Profissional, CATEGORIAS } from '@/lib/types';
 
 interface Props {
   onAdd: (p: Omit<Profissional, 'id'>) => void;
+  trigger?: React.ReactNode;
 }
 
-export function CadastrarProfissionalModal({ onAdd }: Props) {
+export function CadastrarProfissionalModal({ onAdd, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
   const [categoria, setCategoria] = useState('');
   const [chavePix, setChavePix] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome || !categoria) return;
-    onAdd({ nome, categoria, chavePix: chavePix || undefined });
+    onAdd({ nome, categoria, chavePix: chavePix || undefined, cpf: cpf || undefined });
     setNome('');
+    setCpf('');
     setCategoria('');
     setChavePix('');
     setOpen(false);
@@ -27,11 +30,13 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5">
-          <UserPlus className="w-4 h-4" />
-          Novo Profissional
-          <Plus className="w-3 h-3" />
-        </Button>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-1.5">
+            <UserPlus className="w-4 h-4" />
+            Novo Profissional
+            <Plus className="w-3 h-3" />
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -48,6 +53,16 @@ export function CadastrarProfissionalModal({ onAdd }: Props) {
               value={nome}
               onChange={e => setNome(e.target.value)}
               placeholder="Ex: Carlos Silva"
+              className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-1.5">CPF</label>
+            <input
+              type="text"
+              value={cpf}
+              onChange={e => setCpf(e.target.value)}
+              placeholder="000.000.000-00"
               className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
