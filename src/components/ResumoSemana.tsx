@@ -56,9 +56,9 @@ function downloadFile(content: string, filename: string, type: string) {
 }
 
 function generatePDFContent(groups: ObraGroup[], dateLabel: string): string {
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumo Semanal - EcoGestão</title>
+  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumo Semanal - ZENTRA-X</title>
 <style>
-body{font-family:Arial,sans-serif;padding:40px;color:#1a3a2a}
+body{font-family:Arial,sans-serif;padding:40px;color:#1a2a1f}
 h1{color:#1a6b3c;font-size:22px;border-bottom:3px solid #1a6b3c;padding-bottom:8px}
 h2{color:#1a6b3c;font-size:16px;margin-top:24px;background:#e8f5e9;padding:8px 12px;border-radius:6px}
 h3{font-size:14px;margin:12px 0 4px;color:#2e7d52}
@@ -71,7 +71,7 @@ td{padding:6px 10px;border-bottom:1px solid #ddd}
 .header{display:flex;justify-content:space-between;align-items:center}
 .period{color:#666;font-size:14px}
 </style></head><body>
-<div class="header"><h1>🌿 EcoGestão Obras — Resumo Semanal</h1></div>
+<div class="header"><h1>ZENTRA-X — Resumo Semanal</h1></div>
 <p class="period">Período: ${dateLabel}</p>`;
 
   let grandTotal = 0;
@@ -90,7 +90,7 @@ td{padding:6px 10px;border-bottom:1px solid #ddd}
   });
 
   html += `<div class="grand-total">Total Geral PIX: R$ ${grandTotal.toFixed(2)}</div>`;
-  html += `<p style="text-align:center;margin-top:30px;color:#999;font-size:11px">EcomindsX · EcoGestão Obras · Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>`;
+  html += `<p style="text-align:center;margin-top:30px;color:#999;font-size:11px">ZENTRA-X · Gestão Inteligente · Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>`;
   html += `</body></html>`;
   return html;
 }
