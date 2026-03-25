@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, LogIn } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -18,7 +18,6 @@ const Login = () => {
     setLoading(true);
     
     const { error } = await signIn(email, password);
-
     setLoading(false);
 
     if (error) {
@@ -29,23 +28,24 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(158,64%,20%)] to-[hsl(160,50%,35%)] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(155,55%,8%)] via-[hsl(153,60%,14%)] to-[hsl(155,45%,20%)] flex items-center justify-center p-6">
       <div className="w-full max-w-sm">
-        {/* Logo */}
+        {/* Logo placeholder */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary-foreground/15 flex items-center justify-center mx-auto mb-4 backdrop-blur-sm">
-            <Leaf className="w-8 h-8 text-primary-foreground" />
+          <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/10">
+            {/* Logo will be placed here - placeholder */}
+            <span className="text-2xl font-black text-white tracking-tighter">ZX</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-primary-foreground tracking-tight">EcoGestão Obras</h1>
-          <p className="text-sm text-primary-foreground/60 mt-1">EcomindsX · Gestão de Pagamentos</p>
+          <h1 className="text-3xl font-black text-white tracking-tight">ZENTRA-X</h1>
+          <p className="text-sm text-white/50 mt-1.5 tracking-wide">Gestão Inteligente de Obras</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border shadow-2xl p-6 space-y-4">
-          <h2 className="text-lg font-bold text-center">Entrar no Sistema</h2>
+          <h2 className="text-lg font-bold text-center text-foreground">Acesso ao Sistema</h2>
           
           <div>
-            <label className="text-sm font-medium block mb-1.5">Email</label>
+            <label className="text-sm font-medium block mb-1.5 text-foreground">Email</label>
             <input
               type="email"
               value={email}
@@ -57,7 +57,7 @@ const Login = () => {
           </div>
 
           <div>
-            <label className="text-sm font-medium block mb-1.5">Senha</label>
+            <label className="text-sm font-medium block mb-1.5 text-foreground">Senha</label>
             <input
               type="password"
               value={password}
@@ -73,6 +73,10 @@ const Login = () => {
             <LogIn className="w-4 h-4 mr-2" />
             {loading ? 'Aguarde...' : 'Entrar'}
           </Button>
+
+          <p className="text-center text-[11px] text-muted-foreground pt-1">
+            Acesso restrito. Contacte o administrador para obter credenciais.
+          </p>
         </form>
       </div>
     </div>
