@@ -178,6 +178,50 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_reports: {
+        Row: {
+          created_at: string
+          dados_json: Json | null
+          id: string
+          obra_id: string
+          semana_fim: string
+          semana_inicio: string
+          total_acumulado: number
+          total_mensal: number
+          total_semanal: number
+        }
+        Insert: {
+          created_at?: string
+          dados_json?: Json | null
+          id?: string
+          obra_id: string
+          semana_fim: string
+          semana_inicio: string
+          total_acumulado?: number
+          total_mensal?: number
+          total_semanal?: number
+        }
+        Update: {
+          created_at?: string
+          dados_json?: Json | null
+          id?: string
+          obra_id?: string
+          semana_fim?: string
+          semana_inicio?: string
+          total_acumulado?: number
+          total_mensal?: number
+          total_semanal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_reports_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
