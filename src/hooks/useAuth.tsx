@@ -27,12 +27,7 @@ interface AuthContextType {
   permissions: UserPermissions;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  // Legacy helpers (now derived from permissions)
-  isGestor: boolean;
-  isSupervisor: boolean;
-  isEncarregada: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -98,14 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error };
   };
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: window.location.origin }
-    });
-    return { error };
-  };
-
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -117,10 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, role, permissions, loading,
-      signIn, signUp, signOut,
-      isGestor: role === 'gestor',
-      isSupervisor: role === 'supervisor',
-      isEncarregada: role === 'encarregada',
+      signIn, signOut,
     }}>
       {children}
     </AuthContext.Provider>

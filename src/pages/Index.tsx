@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Leaf, FileText, PieChart, BarChart3, Upload, Tag, Shield, LogOut, Trash2 } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, Tag, Shield, LogOut, Trash2, Users } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -10,6 +10,7 @@ import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
 import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
 import { ConfigurarCategorias } from '@/components/ConfigurarCategorias';
+import { RelatoriosObra } from '@/components/RelatoriosObra';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ const Index = () => {
     addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias,
     deleteObra, deleteProfissional, deleteLancamento
   } = useAppStore();
-  const { user, role, permissions, signOut } = useAuth();
+  const { user, permissions, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('lancamento');
@@ -30,6 +31,7 @@ const Index = () => {
     lancamento: useRef<HTMLDivElement>(null),
     orcamento: useRef<HTMLDivElement>(null),
     relatorios: useRef<HTMLDivElement>(null),
+    relatoriosObra: useRef<HTMLDivElement>(null),
     categorias: useRef<HTMLDivElement>(null),
     importar: useRef<HTMLDivElement>(null),
   };
@@ -89,17 +91,17 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-gradient-to-r from-[hsl(158,64%,32%)] to-[hsl(160,50%,42%)] shadow-lg">
+      <header className="bg-gradient-to-r from-[hsl(155,55%,12%)] via-[hsl(153,60%,18%)] to-[hsl(153,45%,25%)] shadow-lg">
         <div className="container py-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary-foreground/15 flex items-center justify-center backdrop-blur-sm">
-                <Leaf className="w-5 h-5 text-primary-foreground" />
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/10">
+                <span className="text-sm font-black text-white tracking-tighter">ZX</span>
               </div>
               <div>
-                <h1 className="text-lg font-extrabold tracking-tight text-primary-foreground">EcoGestão Obras</h1>
-                <p className="text-xs text-primary-foreground/70">
-                  {user?.email} · {role ?? '...'}
+                <h1 className="text-lg font-extrabold tracking-tight text-white">ZENTRA-X</h1>
+                <p className="text-xs text-white/50">
+                  {user?.email}
                 </p>
               </div>
             </div>
@@ -107,12 +109,12 @@ const Index = () => {
               {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} />}
               {permissions.podeCadastrarProfissional && <CadastrarProfissionalModal onAdd={addProfissional} />}
               {permissions.podeGerenciarAcessos && (
-                <Button variant="outline" size="sm" className="gap-1.5" onClick={() => navigate('/gerenciar-acessos')}>
-                  <Shield className="w-4 h-4" />
-                  Acessos
+                <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => navigate('/gerenciar-acessos')}>
+                  <Users className="w-4 h-4" />
+                  Equipe
                 </Button>
               )}
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={handleLogout}>
+              <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={handleLogout}>
                 <LogOut className="w-4 h-4" />
                 Sair
               </Button>
@@ -204,6 +206,15 @@ const Index = () => {
             <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
             <div className="mt-2">
               <DashboardOrcamento obras={obras} lancamentos={lancamentos} />
+            </div>
+          </section>
+        )}
+
+        {showFinancial && (
+          <section ref={sectionRefs.relatoriosObra}>
+            <SectionDivider title="Relatórios de Obra" icon={BarChart3} />
+            <div className="mt-2">
+              <RelatoriosObra obras={obras} lancamentos={lancamentos} />
             </div>
           </section>
         )}
