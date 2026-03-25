@@ -1,17 +1,17 @@
-import { FileText, PieChart, BarChart3, Upload, Tag } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, Tag, TrendingUp } from 'lucide-react';
 import { UserPermissions } from '@/hooks/useAuth';
 
 interface NavAnchorProps {
   active: string;
   onNavigate: (section: string) => void;
   permissions?: UserPermissions;
-  role?: string | null; // kept for backward compat
 }
 
 const allSections = [
   { id: 'lancamento', label: 'Lançamento', icon: FileText, permKey: 'podeLancarDespesa' as keyof UserPermissions },
   { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
-  { id: 'relatorios', label: 'Relatórios', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+  { id: 'relatoriosObra', label: 'Relatórios', icon: TrendingUp, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+  { id: 'relatorios', label: 'Resumo', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
   { id: 'categorias', label: 'Categorias', icon: Tag, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
   { id: 'importar', label: 'Importar', icon: Upload, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
 ];
@@ -22,7 +22,7 @@ export function NavAnchor({ active, onNavigate, permissions }: NavAnchorProps) {
     : allSections;
 
   return (
-    <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border shadow-sm">
+    <nav className="sticky top-0 z-50 bg-card/90 backdrop-blur-md border-b border-border shadow-sm">
       <div className="container flex">
         {sections.map((s) => {
           const Icon = s.icon;

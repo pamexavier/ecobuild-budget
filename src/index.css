@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,25 +6,25 @@
 
 @layer base {
   :root {
-    --background: 152 18% 97%;
-    --foreground: 155 35% 12%;
+    --background: 0 0% 98%;
+    --foreground: 160 20% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 155 35% 12%;
+    --card-foreground: 160 20% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 155 35% 12%;
+    --popover-foreground: 160 20% 10%;
 
-    --primary: 158 64% 32%;
+    --primary: 153 60% 28%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 152 12% 93%;
-    --secondary-foreground: 155 35% 12%;
+    --secondary: 160 8% 93%;
+    --secondary-foreground: 160 20% 10%;
 
-    --muted: 150 10% 94%;
-    --muted-foreground: 155 10% 42%;
+    --muted: 160 6% 94%;
+    --muted-foreground: 160 8% 45%;
 
-    --accent: 160 50% 42%;
+    --accent: 153 45% 35%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -33,26 +33,27 @@
     --warning: 40 96% 50%;
     --warning-foreground: 40 96% 10%;
 
-    --success: 158 60% 36%;
+    --success: 153 60% 32%;
     --success-foreground: 0 0% 100%;
 
-    --border: 152 12% 87%;
-    --input: 152 12% 85%;
-    --ring: 158 64% 32%;
+    --border: 160 8% 88%;
+    --input: 160 8% 85%;
+    --ring: 153 60% 28%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    --sidebar-background: 152 18% 96%;
-    --sidebar-foreground: 155 35% 12%;
-    --sidebar-primary: 158 64% 32%;
+    --sidebar-background: 160 10% 97%;
+    --sidebar-foreground: 160 20% 10%;
+    --sidebar-primary: 153 60% 28%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 152 12% 93%;
-    --sidebar-accent-foreground: 155 35% 12%;
-    --sidebar-border: 152 12% 87%;
-    --sidebar-ring: 158 64% 32%;
+    --sidebar-accent: 160 8% 93%;
+    --sidebar-accent-foreground: 160 20% 10%;
+    --sidebar-border: 160 8% 88%;
+    --sidebar-ring: 153 60% 28%;
 
-    --forest: 155 45% 14%;
-    --emerald-glow: 158 64% 32%;
+    --forest: 155 55% 12%;
+    --emerald: 153 60% 28%;
+    --emerald-light: 153 45% 92%;
   }
 }
 
@@ -67,13 +68,16 @@
   }
 }
 
-/* Subtle leaf pattern background */
+/* Subtle grid pattern */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
-  opacity: 0.025;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M50 8 C25 22 12 48 25 75 C38 60 50 35 50 8Z' fill='%23166534' opacity='0.6'/%3E%3Cpath d='M75 35 C62 48 60 72 72 85 C80 65 80 48 75 35Z' fill='%23166534' opacity='0.4'/%3E%3Ccircle cx='20' cy='20' r='1.5' fill='%23166534' opacity='0.3'/%3E%3Ccircle cx='80' cy='15' r='1' fill='%23166534' opacity='0.2'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  background-image:
+    linear-gradient(hsl(153 60% 28% / 0.15) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(153 60% 28% / 0.15) 1px, transparent 1px);
+  background-size: 40px 40px;
   pointer-events: none;
 }
