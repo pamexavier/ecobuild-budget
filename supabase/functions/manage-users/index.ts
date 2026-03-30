@@ -22,12 +22,8 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Usa nomes de variáveis SEM o prefixo SUPABASE_
     const supabaseUrl = Deno.env.get('URL_PROJETO')
     const supabaseServiceKey = Deno.env.get('SERVICE_KEY')
-    
-    console.log('URL_PROJETO exists:', !!supabaseUrl)
-    console.log('SERVICE_KEY exists:', !!supabaseServiceKey)
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return new Response(
@@ -38,26 +34,26 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey)
     const token = authHeader.replace('Bearer ', '')
-    
+
     const { data: { user }, error: userError } = await adminClient.auth.getUser(token)
-    
+
     if (userError || !user) {
-      console.error('Auth error:', userError?.message)
       return new Response(
         JSON.stringify({ error: 'Token inválido ou expirado' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('User authenticated:', user.id)
-
+    // Checar permissão: pode_gerenciar_acessos OU is_super_admin
     const { data: roleData } = await adminClient
       .from('user_roles')
-      .select('pode_gerenciar_acessos')
+      .select('pode_gerenciar_acessos, is_super_admin')
       .eq('user_id', user.id)
       .single()
 
-    if (!roleData?.pode_gerenciar_acessos) {
+    const canManage = roleData?.pode_gerenciar_acessos || roleData?.is_super_admin
+
+    if (!canManage) {
       return new Response(
         JSON.stringify({ error: 'Sem permissão para gerenciar acessos' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -67,12 +63,10 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const { action, ...params } = body
 
-    console.log('Action:', action)
-
     switch (action) {
       case 'list': {
         const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers()
-        
+
         if (listError) {
           return new Response(
             JSON.stringify({ error: listError.message }),
@@ -95,7 +89,7 @@ Deno.serve(async (req) => {
 
       case 'create': {
         const { email, password, nome } = params
-        
+
         if (!email || !password) {
           return new Response(
             JSON.stringify({ error: 'Email e senha são obrigatórios' }),
@@ -125,7 +119,7 @@ Deno.serve(async (req) => {
 
       case 'update': {
         const { targetUserId, email, password, nome } = params
-        
+
         if (!targetUserId) {
           return new Response(
             JSON.stringify({ error: 'targetUserId é obrigatório' }),
@@ -158,13 +152,16 @@ Deno.serve(async (req) => {
 
       case 'delete': {
         const { targetUserId } = params
-        
+
         if (!targetUserId) {
           return new Response(
             JSON.stringify({ error: 'targetUserId é obrigatório' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
+
+        // Remove vínculos de user_roles (todos os tenants) antes de deletar do auth
+        await adminClient.from('user_roles').delete().eq('user_id', targetUserId)
 
         const { error: deleteError } = await adminClient.auth.admin.deleteUser(targetUserId)
 
@@ -174,8 +171,6 @@ Deno.serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           )
         }
-
-        await adminClient.from('user_roles').delete().eq('user_id', targetUserId)
 
         return new Response(
           JSON.stringify({ success: true }),

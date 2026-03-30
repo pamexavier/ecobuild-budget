@@ -16,12 +16,13 @@ import NotFound from "./pages/NotFound.tsx";
 const queryClient = new QueryClient();
 
 /**
- * TenantGate — se o usuário está logado mas não tem empresa,
- * mostra a tela "Acesso Pendente" (SemTenant).
- * Super admins passam direto (eles não têm tenant próprio).
+ * TenantGate — só avalia tenant DEPOIS que loading terminou.
+ * Como o useAuth agora aguarda fetchRoleAndPermissions antes de
+ * setar loading=false, não há mais janela onde tenantId ainda é null.
  */
 function TenantGate({ children }: { children: React.ReactNode }) {
   const { user, tenantId, isSuperAdmin, loading } = useAuth();
+
   if (loading) return null;
   if (user && !tenantId && !isSuperAdmin) return <SemTenant />;
   return <>{children}</>;
