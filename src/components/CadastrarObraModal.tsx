@@ -36,7 +36,7 @@ export function CadastrarObraModal({ onAdd }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nome || categorias.length === 0) return;
+    if (!nome) return;
     onAdd({ nome, orcamentoLimite: totalOrcamento, categorias });
     setNome('');
     setCategorias([]);
@@ -68,7 +68,8 @@ export function CadastrarObraModal({ onAdd }: Props) {
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-primary" />
-              <span className="text-sm font-semibold">Definição de Orçamento por Categoria</span>
+              <span className="text-sm font-semibold">Orçamento por Categoria</span>
+              <span className="text-xs text-muted-foreground ml-auto">opcional</span>
             </div>
 
             {categorias.length > 0 && (
@@ -99,7 +100,7 @@ export function CadastrarObraModal({ onAdd }: Props) {
               <input type="number" step="0.01" min="0" value={novoValor} onChange={e => setNovoValor(e.target.value)} placeholder="Valor (R$)" className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               <Button type="button" variant="outline" size="sm" onClick={addCategoria} className="shrink-0"><Plus className="w-4 h-4" /></Button>
             </div>
-            <p className="text-xs text-muted-foreground">Adicione as categorias e seus valores orçados.</p>
+            <p className="text-xs text-muted-foreground">Você pode adicionar categorias agora ou depois de salvar a obra.</p>
           </div>
 
           <Button type="submit" className="w-full" disabled={!nome}>Cadastrar Obra</Button>

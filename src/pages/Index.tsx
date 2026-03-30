@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, PieChart, BarChart3, Upload, Tag, Shield, LogOut, Trash2, Users } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, Tag, LogOut, Trash2, Users, Building2 } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -17,23 +17,26 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
-  const { 
-    lancamentos, obras, profissionais, categorias, 
+  const { user, permissions, tenantId, tenantNome, isSuperAdmin, signOut } = useAuth();
+
+  // Passa o tenantId para o store — todas as queries ficam isoladas
+  const {
+    lancamentos, obras, profissionais, categorias,
     addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias,
-    deleteObra, deleteProfissional, deleteLancamento
-  } = useAppStore();
-  const { user, permissions, signOut } = useAuth();
+    deleteObra, deleteProfissional, deleteLancamento,
+  } = useAppStore(tenantId);
+
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('lancamento');
 
   const sectionRefs = {
-    lancamento: useRef<HTMLDivElement>(null),
-    orcamento: useRef<HTMLDivElement>(null),
-    relatorios: useRef<HTMLDivElement>(null),
+    lancamento:    useRef<HTMLDivElement>(null),
+    orcamento:     useRef<HTMLDivElement>(null),
+    relatorios:    useRef<HTMLDivElement>(null),
     relatoriosObra: useRef<HTMLDivElement>(null),
-    categorias: useRef<HTMLDivElement>(null),
-    importar: useRef<HTMLDivElement>(null),
+    categorias:    useRef<HTMLDivElement>(null),
+    importar:      useRef<HTMLDivElement>(null),
   };
 
   const navigateTo = (section: string) => {
@@ -43,7 +46,7 @@ const Index = () => {
 
   useEffect(() => {
     const observer = new IntersectionObserver(
-      (entries) => {
+      entries => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const id = entry.target.getAttribute('data-section');
@@ -53,14 +56,12 @@ const Index = () => {
       },
       { rootMargin: '-100px 0px -60% 0px' }
     );
-
     Object.entries(sectionRefs).forEach(([key, ref]) => {
       if (ref.current) {
         ref.current.setAttribute('data-section', key);
         observer.observe(ref.current);
       }
     });
-
     return () => observer.disconnect();
   }, []);
 
@@ -70,7 +71,7 @@ const Index = () => {
   };
 
   const handleDeleteObra = async (id: string, nome: string) => {
-    if (!confirm(`Excluir obra "${nome}"? Isso removerá todos os lançamentos vinculados.`)) return;
+    if (!confirm(`Excluir obra "${nome}"?`)) return;
     await deleteObra(id);
     toast({ title: 'Obra excluída', description: nome });
   };
@@ -100,21 +101,46 @@ const Index = () => {
               </div>
               <div>
                 <h1 className="text-lg font-extrabold tracking-tight text-white">ZENTRA-X</h1>
-                <p className="text-xs text-white/50">
-                  {user?.email}
-                </p>
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-3 h-3 text-white/40" />
+                  {/* Nome da empresa do tenant — cada cliente vê o seu */}
+                  <p className="text-xs text-white/60">{tenantNome || user?.email}</p>
+                </div>
               </div>
             </div>
+
             <div className="flex gap-2 flex-wrap">
               {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} />}
               {permissions.podeCadastrarProfissional && <CadastrarProfissionalModal onAdd={addProfissional} />}
               {permissions.podeGerenciarAcessos && (
-                <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => navigate('/gerenciar-acessos')}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={() => navigate('/gerenciar-acessos')}
+                >
                   <Users className="w-4 h-4" />
                   Equipe
                 </Button>
               )}
-              <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={handleLogout}>
+              {/* Atalho para o super admin voltar ao painel */}
+              {isSuperAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                  onClick={() => navigate('/super-admin')}
+                >
+                  <Building2 className="w-4 h-4" />
+                  Admin
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
+                onClick={handleLogout}
+              >
                 <LogOut className="w-4 h-4" />
                 Sair
               </Button>
@@ -130,7 +156,12 @@ const Index = () => {
           <section ref={sectionRefs.lancamento} className="pt-8">
             <SectionDivider title="Formulário de Lançamento" icon={FileText} />
             <div className="mt-2 rounded-lg border border-border bg-card p-5">
-              <FormularioLancamento obras={obras} profissionais={profissionais} onSubmit={addLancamento} onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined} />
+              <FormularioLancamento
+                obras={obras}
+                profissionais={profissionais}
+                onSubmit={addLancamento}
+                onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined}
+              />
             </div>
 
             {lancamentos.length > 0 && (
@@ -148,7 +179,10 @@ const Index = () => {
                         <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
                       </div>
                       {permissions.podeGerenciarAcessos && (
-                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2">
+                        <button
+                          onClick={() => handleDeleteLancamento(l.id)}
+                          className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2"
+                        >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}

@@ -8,13 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 
-interface AuthUser {
-  id: string;
-  email: string;
-  nome: string;
-  created_at: string;
-}
-
 interface UserWithPermissions {
   user_id: string;
   role: string;
@@ -43,7 +36,7 @@ const PERMISSION_LABELS: Record<string, string> = {
 const PERMISSION_KEYS = Object.keys(PERMISSION_LABELS);
 
 const GerenciarAcessos = () => {
-  const { permissions, loading: authLoading } = useAuth();
+  const { permissions, tenantId, tenantNome, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [users, setUsers] = useState<CombinedUser[]>([]);
@@ -57,45 +50,51 @@ const GerenciarAcessos = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !permissions.podeGerenciarAcessos) {
-      navigate('/');
-    }
+    if (!authLoading && !permissions.podeGerenciarAcessos) navigate('/');
   }, [authLoading, permissions.podeGerenciarAcessos, navigate]);
 
   const fetchUsers = async () => {
+    if (!tenantId) return;
     setLoading(true);
 
-    // Fetch auth users via edge function
+    // Buscar auth users via edge function
     const { data: authData, error: authError } = await supabase.functions.invoke('manage-users', {
       body: { action: 'list' },
     });
 
-    // Fetch permissions
+    // Buscar roles APENAS deste tenant
     const { data: rolesData } = await supabase
       .from('user_roles')
-      .select('user_id, role, pode_criar_obra, pode_editar_orcamento, pode_lancar_despesa, pode_cadastrar_profissional, pode_gerenciar_acessos');
+      .select('user_id, role, pode_criar_obra, pode_editar_orcamento, pode_lancar_despesa, pode_cadastrar_profissional, pode_gerenciar_acessos')
+      .eq('tenant_id', tenantId);
 
-    const authUsers: AuthUser[] = authError ? [] : (authData?.users || []);
+    const authUsers = authError ? [] : (authData?.users || []);
     const roles = (rolesData || []) as UserWithPermissions[];
 
-    const combined: CombinedUser[] = authUsers.map(u => ({
-      id: u.id,
-      email: u.email,
-      nome: u.nome || '',
-      permissions: roles.find(r => r.user_id === u.id) || null,
-    }));
+    // Apenas usuários vinculados a este tenant
+    const tenantUserIds = new Set(roles.map(r => r.user_id));
+    const combined: CombinedUser[] = authUsers
+      .filter((u: any) => tenantUserIds.has(u.id))
+      .map((u: any) => ({
+        id: u.id,
+        email: u.email,
+        nome: u.nome || '',
+        permissions: roles.find(r => r.user_id === u.id) || null,
+      }));
 
     setUsers(combined);
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, []);
+  useEffect(() => { fetchUsers(); }, [tenantId]);
 
   const togglePermission = async (userId: string, field: string, currentValue: boolean) => {
+    if (!tenantId) return;
     const { error } = await supabase
       .from('user_roles')
       .update({ [field]: !currentValue })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId); // ← isolamento garantido
 
     if (error) {
       toast({ title: 'Erro', description: error.message, variant: 'destructive' });
@@ -105,43 +104,54 @@ const GerenciarAcessos = () => {
           ? { ...u, permissions: { ...u.permissions, [field]: !currentValue } }
           : u
       ));
-      toast({ title: 'Permissão atualizada' });
     }
   };
 
   const handleCreateUser = async () => {
-    if (!formEmail || !formPassword) return;
+    if (!formEmail || !formPassword || !tenantId) return;
     setSaving(true);
 
+    // 1. Criar usuário no auth
     const { data, error } = await supabase.functions.invoke('manage-users', {
       body: { action: 'create', email: formEmail, password: formPassword, nome: formName },
     });
 
-    setSaving(false);
     if (error || data?.error) {
+      setSaving(false);
       toast({ title: 'Erro ao criar usuário', description: data?.error || error?.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Usuário criado com sucesso' });
-      setShowCreateDialog(false);
-      resetForm();
-      fetchUsers();
+      return;
     }
+
+    // 2. Vincular ao tenant via RPC
+    const newUserId = data.user?.id;
+    if (newUserId) {
+      await supabase.rpc('add_user_to_tenant', {
+        p_user_id: newUserId,
+        p_tenant_id: tenantId,
+        p_role: 'encarregada',
+      });
+    }
+
+    setSaving(false);
+    toast({ title: 'Usuário criado e vinculado à empresa' });
+    setShowCreateDialog(false);
+    resetForm();
+    fetchUsers();
   };
 
   const handleUpdateUser = async () => {
     if (!editUser) return;
     setSaving(true);
-
     const body: Record<string, any> = { action: 'update', targetUserId: editUser.id };
-    if (formName && formName !== editUser.nome) body.nome = formName;
-    if (formEmail && formEmail !== editUser.email) body.email = formEmail;
+    if (formName !== editUser.nome) body.nome = formName;
+    if (formEmail !== editUser.email) body.email = formEmail;
     if (formPassword) body.password = formPassword;
 
     const { data, error } = await supabase.functions.invoke('manage-users', { body });
-
     setSaving(false);
+
     if (error || data?.error) {
-      toast({ title: 'Erro ao atualizar', description: data?.error || error?.message, variant: 'destructive' });
+      toast({ title: 'Erro', description: data?.error || error?.message, variant: 'destructive' });
     } else {
       toast({ title: 'Usuário atualizado' });
       setEditUser(null);
@@ -150,34 +160,27 @@ const GerenciarAcessos = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string, email: string) => {
-    if (!confirm(`Remover o usuário "${email}"? Esta ação é irreversível.`)) return;
+  const handleRemoveUser = async (userId: string, email: string) => {
+    if (!tenantId) return;
+    if (!confirm(`Remover "${email}" desta empresa?`)) return;
 
-    const { data, error } = await supabase.functions.invoke('manage-users', {
-      body: { action: 'delete', targetUserId: userId },
-    });
+    // Remove só o vínculo com este tenant (não deleta o usuário do auth)
+    const { error } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', userId)
+      .eq('tenant_id', tenantId);
 
-    if (error || data?.error) {
-      toast({ title: 'Erro ao remover', description: data?.error || error?.message, variant: 'destructive' });
+    if (error) {
+      toast({ title: 'Erro ao remover', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Usuário removido' });
+      toast({ title: 'Usuário removido da empresa' });
       fetchUsers();
     }
   };
 
-  const resetForm = () => {
-    setFormName('');
-    setFormEmail('');
-    setFormPassword('');
-    setShowPassword(false);
-  };
-
-  const openEdit = (user: CombinedUser) => {
-    setEditUser(user);
-    setFormName(user.nome);
-    setFormEmail(user.email);
-    setFormPassword('');
-  };
+  const resetForm = () => { setFormName(''); setFormEmail(''); setFormPassword(''); setShowPassword(false); };
+  const openEdit = (u: CombinedUser) => { setEditUser(u); setFormName(u.nome); setFormEmail(u.email); setFormPassword(''); };
 
   if (authLoading || !permissions.podeGerenciarAcessos) return null;
 
@@ -193,10 +196,12 @@ const GerenciarAcessos = () => {
               <Shield className="w-5 h-5 text-white" />
               <div>
                 <h1 className="text-lg font-extrabold text-white">Gestão de Equipe</h1>
-                <p className="text-xs text-white/60">ZENTRA-X · Controle de Acessos</p>
+                {/* Mostra a empresa do tenant — cada gestor vê só a sua */}
+                <p className="text-xs text-white/60">{tenantNome} · Controle de Acessos</p>
               </div>
             </div>
-            <Dialog open={showCreateDialog} onOpenChange={(open) => { setShowCreateDialog(open); if (!open) resetForm(); }}>
+
+            <Dialog open={showCreateDialog} onOpenChange={o => { setShowCreateDialog(o); if (!o) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button size="sm" className="gap-1.5">
                   <UserPlus className="w-4 h-4" />
@@ -205,25 +210,16 @@ const GerenciarAcessos = () => {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
+                  <DialogTitle>Adicionar Usuário — {tenantNome}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <div>
-                    <label className="text-sm font-medium block mb-1">Nome</label>
-                    <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Nome completo" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-1">Email *</label>
-                    <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="email@exemplo.com" required className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium block mb-1">Senha *</label>
-                    <div className="relative">
-                      <input type={showPassword ? 'text' : 'password'} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Mínimo 6 caracteres" minLength={6} required className="w-full rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
+                  <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Nome" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} placeholder="Email *" required className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  <div className="relative">
+                    <input type={showPassword ? 'text' : 'password'} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Senha * (mín. 6 caracteres)" required className="w-full rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                   <Button onClick={handleCreateUser} disabled={saving || !formEmail || !formPassword} className="w-full">
                     {saving ? 'Criando...' : 'Criar Usuário'}
@@ -237,31 +233,20 @@ const GerenciarAcessos = () => {
 
       <main className="container py-8 max-w-4xl">
         {/* Edit Dialog */}
-        <Dialog open={!!editUser} onOpenChange={(open) => { if (!open) { setEditUser(null); resetForm(); } }}>
+        <Dialog open={!!editUser} onOpenChange={o => { if (!o) { setEditUser(null); resetForm(); } }}>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Usuário</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div>
-                <label className="text-sm font-medium block mb-1">Nome</label>
-                <input value={formName} onChange={e => setFormName(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Email</label>
-                <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="text-sm font-medium block mb-1">Nova Senha (opcional)</label>
-                <div className="relative">
-                  <input type={showPassword ? 'text' : 'password'} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Deixe vazio para manter" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+              <input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Nome" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} value={formPassword} onChange={e => setFormPassword(e.target.value)} placeholder="Nova senha (opcional)" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               <Button onClick={handleUpdateUser} disabled={saving} className="w-full">
-                {saving ? 'Salvando...' : 'Salvar Alterações'}
+                {saving ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
           </DialogContent>
@@ -270,7 +255,7 @@ const GerenciarAcessos = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-5 h-5 text-primary" />
-            <h2 className="text-base font-bold">Usuários ({users.length})</h2>
+            <h2 className="text-base font-bold">Equipe — {users.length} usuário(s)</h2>
           </div>
 
           {loading ? (
@@ -280,7 +265,7 @@ const GerenciarAcessos = () => {
             </div>
           ) : users.length === 0 ? (
             <div className="rounded-lg border border-border bg-card p-8 text-center">
-              <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado</p>
+              <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado nesta empresa.</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -295,7 +280,7 @@ const GerenciarAcessos = () => {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(u)}>
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteUser(u.id, u.email)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleRemoveUser(u.id, u.email)}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
@@ -304,10 +289,7 @@ const GerenciarAcessos = () => {
                   {u.permissions && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {PERMISSION_KEYS.map(key => (
-                        <label
-                          key={key}
-                          className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
-                        >
+                        <label key={key} className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors">
                           <span className="text-xs font-medium">{PERMISSION_LABELS[key]}</span>
                           <Switch
                             checked={u.permissions![key as keyof UserWithPermissions] as boolean}

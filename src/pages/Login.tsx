@@ -18,46 +18,48 @@ const Login = () => {
     setLoading(true);
     
     const { error } = await signIn(email, password);
+
     setLoading(false);
 
     if (error) {
-      toast({ title: 'Erro ao entrar', description: error.message, variant: 'destructive' });
+      toast({ 
+        title: 'Erro ao entrar', 
+        description: 'Credenciais inválidas ou acesso não autorizado.', 
+        variant: 'destructive' 
+      });
     } else {
       navigate('/');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(155,55%,8%)] via-[hsl(153,60%,14%)] to-[hsl(155,45%,20%)] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(155,55%,8%)] via-[hsl(153,60%,14%)] to-[hsl(155,45%,20%)] flex items-center justify-center p-6 font-sans">
       <div className="w-full max-w-sm">
-        {/* Logo placeholder */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-5 backdrop-blur-sm border border-white/10">
-            {/* Logo will be placed here - placeholder */}
-            <span className="text-2xl font-black text-white tracking-tighter">ZX</span>
-          </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">ZENTRA-X</h1>
-          <p className="text-sm text-white/50 mt-1.5 tracking-wide">Gestão Inteligente de Obras</p>
+        
+        {/* Topo Limpo - Título Principal */}
+        <div className="text-center mb-10">
+          <h1 className="text-5xl font-black text-white tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">ZENTRA-X</h1>
+          <p className="text-sm text-emerald-400/80 mt-2.5 font-medium tracking-[0.2em] uppercase">Gestão Inteligente de Obras</p>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border shadow-2xl p-6 space-y-4">
-          <h2 className="text-lg font-bold text-center text-foreground">Acesso ao Sistema</h2>
+        {/* Formulário de Acesso */}
+        <form onSubmit={handleSubmit} className="bg-emerald-950/20 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-9 space-y-6">
+          <h2 className="text-xl font-extrabold text-white text-center mb-10 tracking-tight">Acesso Restrito</h2>
           
-          <div>
-            <label className="text-sm font-medium block mb-1.5 text-foreground">Email</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest ml-1">Email Corporativo</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="seu@email.com"
               required
-              className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20"
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium block mb-1.5 text-foreground">Senha</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest ml-1">Senha de Acesso</label>
             <input
               type="password"
               value={password}
@@ -65,17 +67,42 @@ const Login = () => {
               placeholder="••••••••"
               required
               minLength={6}
-              className="w-full rounded-lg border border-input bg-background px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20"
             />
           </div>
 
-          <Button type="submit" className="w-full py-5" disabled={loading}>
-            <LogIn className="w-4 h-4 mr-2" />
-            {loading ? 'Aguarde...' : 'Entrar'}
+          <Button 
+            type="submit" 
+            className="w-full py-7 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 text-base" 
+            disabled={loading}
+          >
+            {loading ? (
+              'Autenticando...'
+            ) : (
+              <>
+                <LogIn className="w-5 h-5 mr-2" />
+                ENTRAR NO SISTEMA
+              </>
+            )}
           </Button>
 
-          <p className="text-center text-[11px] text-muted-foreground pt-1">
-            Acesso restrito. Contacte o administrador para obter credenciais.
+          {/* Logo EcomindsX - Agora Embaixo */}
+          <div className="pt-10 pb-2 flex flex-col items-center border-t border-white/10 mt-10">
+            {/* IMPORTANTE: Mantenha sua logo sem fundo (image_6.png) na pasta "public" com o nome "logo.png" */}
+            <img 
+              src="/logo.png" 
+              alt="EcomindsX Logo" 
+              className="w-32 h-auto opacity-70 drop-shadow-[0_0_10px_rgba(16,185,129,0.5)] hover:opacity-100 transition-opacity" 
+              onError={(e) => {
+                // Caso a imagem ainda não exista, esconde e mostra texto reserva sutil
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement!.innerHTML = '<p class="text-[10px] text-white/20">LOGO AQUI</p>';
+              }}
+            />
+          </div>
+
+          <p className="text-[10px] text-center text-white/30 uppercase tracking-[0.3em]">
+            Powered by EcomindsX
           </p>
         </form>
       </div>

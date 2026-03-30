@@ -17,7 +17,8 @@ export interface Profissional {
   nome: string;
   categoria: string;
   chavePix?: string;
-  cpf?: string;
+  tipoChavePix?: string; // NOVO CAMPO
+  documento?: string;    // NOVO CAMPO (Substituiu o cpf)
 }
 
 export type TipoLancamento = 'diaria' | 'empreitada';

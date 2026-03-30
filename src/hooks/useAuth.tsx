@@ -25,9 +25,13 @@ interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   permissions: UserPermissions;
+  tenantId: string | null;
+  tenantNome: string | null;
+  isSuperAdmin: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -37,17 +41,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [permissions, setPermissions] = useState<UserPermissions>(DEFAULT_PERMISSIONS);
+  const [tenantId, setTenantId] = useState<string | null>(null);
+  const [tenantNome, setTenantNome] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchRoleAndPermissions = async (userId: string) => {
     const { data } = await supabase
       .from('user_roles')
-      .select('role, pode_criar_obra, pode_editar_orcamento, pode_lancar_despesa, pode_cadastrar_profissional, pode_gerenciar_acessos')
+      .select(`
+        role,
+        tenant_id,
+        is_super_admin,
+        pode_criar_obra,
+        pode_editar_orcamento,
+        pode_lancar_despesa,
+        pode_cadastrar_profissional,
+        pode_gerenciar_acessos,
+        tenants ( id, nome )
+      `)
       .eq('user_id', userId)
+      .limit(1)
       .single();
 
     if (data) {
       setRole(data.role as AppRole);
+      setTenantId(data.tenant_id ?? null);
+      setIsSuperAdmin(data.is_super_admin ?? false);
+      // @ts-ignore
+      setTenantNome(data.tenants?.nome ?? null);
       setPermissions({
         podeCriarObra: data.pode_criar_obra ?? false,
         podeEditarOrcamento: data.pode_editar_orcamento ?? false,
@@ -56,9 +78,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         podeGerenciarAcessos: data.pode_gerenciar_acessos ?? false,
       });
     } else {
+      // Usuário sem role ainda — aguarda super admin configurar
       setRole(null);
+      setTenantId(null);
+      setTenantNome(null);
+      setIsSuperAdmin(false);
       setPermissions(DEFAULT_PERMISSIONS);
     }
+  };
+
+  const refreshAuth = async () => {
+    if (user) await fetchRoleAndPermissions(user.id);
   };
 
   useEffect(() => {
@@ -70,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTimeout(() => fetchRoleAndPermissions(session.user.id), 0);
         } else {
           setRole(null);
+          setTenantId(null);
+          setTenantNome(null);
+          setIsSuperAdmin(false);
           setPermissions(DEFAULT_PERMISSIONS);
         }
         setLoading(false);
@@ -79,9 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoleAndPermissions(session.user.id);
-      }
+      if (session?.user) fetchRoleAndPermissions(session.user.id);
       setLoading(false);
     });
 
@@ -98,13 +129,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setRole(null);
+    setTenantId(null);
+    setTenantNome(null);
+    setIsSuperAdmin(false);
     setPermissions(DEFAULT_PERMISSIONS);
   };
 
   return (
     <AuthContext.Provider value={{
-      user, session, role, permissions, loading,
-      signIn, signOut,
+      user, session, role, permissions,
+      tenantId, tenantNome, isSuperAdmin,
+      loading,
+      signIn, signOut, refreshAuth,
     }}>
       {children}
     </AuthContext.Provider>

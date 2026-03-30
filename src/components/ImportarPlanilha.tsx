@@ -1,235 +1,252 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, FileSpreadsheet, Download } from 'lucide-react';
-import { Lancamento, Obra } from '@/lib/types';
+import { Upload, X, FileSpreadsheet, AlertTriangle, UserPlus, FilePlus, AlertCircle } from 'lucide-react';
+import { Lancamento, Obra, Profissional } from '@/lib/types';
 import { Button } from '@/components/ui/button';
+import { CadastrarProfissionalModal } from './CadastrarProfissionalModal';
+import { CadastrarObraModal } from './CadastrarObraModal';
+
+// --- INTELIGÊNCIA DE LIMPEZA E BUSCA ---
+
+const normalize = (str: string) => 
+  str?.toLowerCase()
+     .trim()
+     .normalize("NFD")
+     .replace(/[\u0300-\u036f]/g, "") || "";
+
+// Remove ruídos comuns de planilhas financeiras (LTDA, CNPJ, S/A, etc)
+const cleanForMatch = (str: string) => {
+  return normalize(str)
+    .replace(/\b(ltda|me|epp|sa|s\/a|eireli|cnpj|cpf|servicos|comercio|artigos|de|da|do)\b/gi, '')
+    .replace(/[0-9.\/\-]/g, '') // remove números e pontuações de CNPJ
+    .replace(/\s+/g, ' ')       // remove espaços duplos
+    .trim();
+};
+
+const findBestMatch = (original: string, list: any[], field: string) => {
+  const target = cleanForMatch(original);
+  if (!target || target.length < 3) return null;
+
+  // 1. Tenta match exato após limpeza
+  const exact = list.find(item => cleanForMatch(item[field]) === target);
+  if (exact) return exact;
+
+  // 2. Tenta ver se o nome da planilha contém o nome do sistema (ou vice-versa)
+  const partial = list.find(item => {
+    const sysName = cleanForMatch(item[field]);
+    return sysName.length > 2 && (target.includes(sysName) || sysName.includes(target));
+  });
+  if (partial) return partial;
+
+  // 3. Tenta match pela primeira palavra (ex: "FERRAMULTI" acha "FERRAMULTI COMERCIO...")
+  const firstWord = target.split(' ')[0];
+  if (firstWord.length > 3) {
+    const wordMatch = list.find(item => cleanForMatch(item[field]).startsWith(firstWord));
+    return wordMatch;
+  }
+
+  return null;
+};
+
+// Dicionário de sinônimos para colunas (Mapeamento)
+const MAP_KEYWORDS: Record<string, string[]> = {
+  data: ['data', 'vencimento', 'date', 'dia', 'pagamento', 'competencia'],
+  obraNome: ['obra', 'local', 'destino', 'projeto', 'unidade', 'canteiro'],
+  profissional: ['profissional', 'nome', 'fornecedor', 'prestador', 'favorecido', 'recebedor'],
+  valor: ['valor', 'preco', 'custo', 'total', 'montante', 'pago']
+};
 
 interface Props {
   obras: Obra[];
+  profissionais: Profissional[];
   onImport: (items: Omit<Lancamento, 'id'>[]) => void;
+  onAddProfissional: (p: Omit<Profissional, 'id'>) => void;
+  onAddObra: (o: Omit<Obra, 'id' | 'gastoAtual'>) => void;
 }
 
 interface ParsedRow {
+  id: number;
   data: string;
-  obraNome: string;
-  profissional: string;
-  categoria: string;
-  tipo: string;
-  valor: string;
-  turnos: string;
-  error?: string;
+  dataFormatada: string;
+  obraNomeOriginal: string;
+  obraIdSelecionada: string;
+  profissionalOriginal: string;
+  profissionalIdSelecionada: string;
+  valorNum: number;
 }
 
-const CSV_TEMPLATE = `Data;Obra;Profissional;Categoria;Tipo;Valor;Turnos
-2025-03-18;Residencial Verde;CARLOS SILVA;Fundação;Diária;250;Manhã,Tarde
-2025-03-18;Residencial Verde;ANA RODRIGUES;Elétrica;Empreitada;1500;
-2025-03-19;Edifício Horizonte;ROBERTO SANTOS;Hidráulica;Diária;300;Manhã`;
-
-function downloadTemplate() {
-  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'modelo_lancamentos.csv';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-export function ImportarPlanilha({ obras, onImport }: Props) {
+export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissional, onAddObra }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [fileName, setFileName] = useState('');
-  const [headers, setHeaders] = useState<string[]>([]);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [mapping, setMapping] = useState<Record<string, string>>({
-    data: '', obraNome: '', profissional: '', categoria: '', tipo: '', valor: '', turnos: '',
-  });
-  const [rawRows, setRawRows] = useState<string[][]>([]);
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
+  const [mapping, setMapping] = useState<Record<string, string>>({
+    data: '', obraNome: '', profissional: '', categoria: '', valor: ''
+  });
+  const [headers, setHeaders] = useState<string[]>([]);
+  const [rawRows, setRawRows] = useState<string[][]>([]);
+  const [fileName, setFileName] = useState('');
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const reset = () => {
+    setStep('upload'); setRows([]); setFileName('');
+    setMapping({ data: '', obraNome: '', profissional: '', categoria: '', valor: '' });
+  };
 
   const parseCSV = useCallback((text: string) => {
+    const delimiter = text.indexOf(';') > -1 ? ';' : ',';
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
     if (lines.length < 2) return;
-    const hdrs = lines[0].split(/[,;]/).map(h => h.trim());
-    setHeaders(hdrs);
-    const dataRows = lines.slice(1).map(l => l.split(/[,;]/).map(c => c.trim()));
-    setRawRows(dataRows);
+    
+    const splitCSV = (str: string) => {
+      const res = []; let q = false; let c = '';
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '"') q = !q;
+        else if (str[i] === delimiter && !q) { res.push(c.trim()); c = ''; }
+        else c += str[i];
+      }
+      res.push(c.trim());
+      return res.map(s => s.replace(/^"|"$/g, '').trim());
+    };
 
-    const autoMap: Record<string, string> = { data: '', obraNome: '', profissional: '', categoria: '', tipo: '', valor: '', turnos: '' };
+    const hdrs = splitCSV(lines[0]);
+    setHeaders(hdrs);
+    setRawRows(lines.slice(1).map(l => splitCSV(l)));
+
+    // Auto-Mapeamento de Colunas
+    const autoMap: any = { data: '', obraNome: '', profissional: '', categoria: '', valor: '' };
     hdrs.forEach((h, i) => {
-      const lower = h.toLowerCase();
-      if (lower.includes('data')) autoMap.data = String(i);
-      if (lower.includes('obra')) autoMap.obraNome = String(i);
-      if (lower.includes('prestador') || lower.includes('profissional')) autoMap.profissional = String(i);
-      if (lower.includes('categoria')) autoMap.categoria = String(i);
-      if (lower.includes('tipo')) autoMap.tipo = String(i);
-      if (lower.includes('valor')) autoMap.valor = String(i);
-      if (lower.includes('turno')) autoMap.turnos = String(i);
+      const hn = normalize(h);
+      Object.keys(MAP_KEYWORDS).forEach(k => {
+        if (MAP_KEYWORDS[k].some(kw => hn.includes(kw))) autoMap[k] = String(i);
+      });
     });
     setMapping(autoMap);
     setStep('map');
   }, []);
 
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => parseCSV(ev.target?.result as string);
-    reader.readAsText(file);
-  };
-
   const applyMapping = () => {
-    const parsed: ParsedRow[] = rawRows.map(row => {
-      const data = mapping.data ? row[parseInt(mapping.data)] || '' : '';
-      const obraNome = mapping.obraNome ? row[parseInt(mapping.obraNome)] || '' : '';
-      const profissional = mapping.profissional ? row[parseInt(mapping.profissional)] || '' : '';
-      const categoria = mapping.categoria ? row[parseInt(mapping.categoria)] || '' : '';
-      const tipo = mapping.tipo ? row[parseInt(mapping.tipo)] || '' : '';
-      const valorStr = mapping.valor ? row[parseInt(mapping.valor)] || '' : '';
-      const turnos = mapping.turnos ? row[parseInt(mapping.turnos)] || '' : '';
-      const valorNum = parseFloat(valorStr.replace(',', '.'));
-      const error = isNaN(valorNum) ? 'Valor inválido' : undefined;
-      return { data, obraNome, profissional: profissional.toUpperCase(), categoria: categoria.toUpperCase(), tipo, valor: valorStr, turnos, error };
+    const colData = parseInt(mapping.data);
+    const colObra = parseInt(mapping.obraNome);
+    const colProf = parseInt(mapping.profissional);
+    const colValor = parseInt(mapping.valor);
+
+    const parsed = rawRows.map((row, index) => {
+      const obraRaw = row[colObra] || '';
+      const profRaw = row[colProf] || '';
+      
+      // A MÁGICA ACONTECE AQUI: Busca inteligente
+      const matchedObra = findBestMatch(obraRaw, obras, 'nome');
+      const matchedProf = findBestMatch(profRaw, profissionais, 'nome');
+
+      const valorNum = Math.abs(parseFloat((row[colValor] || '0').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'))) || 0;
+
+      return {
+        id: index,
+        data: row[colData] || '',
+        dataFormatada: (row[colData] || '').split('/').reverse().join('-'),
+        obraNomeOriginal: obraRaw,
+        obraIdSelecionada: matchedObra?.id || '',
+        profissionalOriginal: profRaw,
+        profissionalIdSelecionada: matchedProf?.id || '',
+        valorNum
+      };
     });
+
     setRows(parsed);
     setStep('preview');
   };
 
-  const handleConfirm = () => {
-    const valid = rows.filter(r => !r.error);
-    const items: Omit<Lancamento, 'id'>[] = valid.map(r => {
-      const obra = obras.find(o => o.nome.toLowerCase().includes(r.obraNome.toLowerCase()));
-      const tipoNorm = r.tipo.toLowerCase().includes('empreitada') ? 'empreitada' : 'diaria';
-      const turnosList = r.turnos ? r.turnos.split(',').map(t => t.trim()).filter(Boolean) : ['Manhã'];
-      const valorNum = parseFloat(r.valor.replace(',', '.'));
-
-      // Auto-detect budget category from the obra
-      const catName = r.categoria.charAt(0).toUpperCase() + r.categoria.slice(1).toLowerCase();
-      const obraCat = obra?.categorias?.find(c => c.nome.toLowerCase() === catName.toLowerCase());
-
-      // For diária, calculate proportional value
-      let valorFinal = valorNum;
-      if (tipoNorm === 'diaria' && turnosList.length > 0 && turnosList.length < 3) {
-        valorFinal = (valorNum / 3) * turnosList.length;
-      }
-
-      return {
-        obraId: obra?.id || obras[0]?.id || '1',
-        obraNome: obra?.nome || r.obraNome,
-        profissionalId: '',
-        profissional: r.profissional,
-        categoria: r.categoria,
-        categoriaOrcamentoId: obraCat?.id || '',
-        categoriaOrcamentoNome: obraCat?.nome || catName,
-        tipo: tipoNorm as 'diaria' | 'empreitada',
-        turnos: tipoNorm === 'diaria' ? turnosList : [],
-        valor: valorFinal,
-        valorDiaria: tipoNorm === 'diaria' ? valorNum : undefined,
-        data: r.data || new Date().toISOString().split('T')[0],
-      };
-    });
-    onImport(items);
-    reset();
-  };
-
-  const reset = () => {
-    setStep('upload');
-    setRows([]);
-    setFileName('');
-    setHeaders([]);
-    setRawRows([]);
-  };
-
-  const FIELD_LABELS: Record<string, string> = {
-    data: 'Data', obraNome: 'Obra', profissional: 'Profissional',
-    categoria: 'Categoria', tipo: 'Tipo', valor: 'Valor', turnos: 'Turnos',
-  };
-
   if (step === 'upload') {
     return (
-      <div className="space-y-3">
-        <button
-          onClick={() => fileRef.current?.click()}
-          className="w-full rounded-lg border border-dashed border-input p-8 flex flex-col items-center gap-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors"
-        >
-          <FileSpreadsheet className="w-8 h-8 text-primary/50" />
-          <span>Importar Planilha (.csv)</span>
-        </button>
-        <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
-
-        <Button variant="outline" onClick={downloadTemplate} className="w-full gap-2">
-          <Download className="w-4 h-4" />
-          Baixar Modelo de Planilha (.csv)
-        </Button>
-      </div>
-    );
-  }
-
-  if (step === 'map') {
-    return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">{fileName}</span>
-          <button onClick={reset} className="p-1 rounded hover:bg-muted"><X className="w-4 h-4" /></button>
-        </div>
-        <p className="text-sm font-semibold">Mapeamento de Colunas</p>
-        {Object.keys(FIELD_LABELS).map(field => (
-          <div key={field} className="flex items-center gap-3">
-            <span className="text-sm font-medium w-28">{FIELD_LABELS[field]}</span>
-            <select
-              value={mapping[field]}
-              onChange={e => setMapping(prev => ({ ...prev, [field]: e.target.value }))}
-              className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">—</option>
-              {headers.map((h, i) => <option key={i} value={String(i)}>{h}</option>)}
-            </select>
-          </div>
-        ))}
-        <Button onClick={applyMapping} className="w-full">Visualizar Preview</Button>
+        <button onClick={() => fileRef.current?.click()} className="w-full rounded-xl border-2 border-dashed border-primary/20 p-12 flex flex-col items-center gap-4 hover:bg-primary/5 transition-all">
+          <Upload className="w-10 h-10 text-primary/40" />
+          <span className="text-sm font-semibold text-muted-foreground">Selecionar Planilha (.CSV)</span>
+        </button>
+        <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => {
+          const f = e.target.files?.[0];
+          if(f) { setFileName(f.name); const r = new FileReader(); r.onload = (ev) => parseCSV(ev.target?.result as string); r.readAsText(f); }
+        }}/>
       </div>
     );
   }
-
-  const hasErrors = rows.some(r => r.error);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <span className="text-sm font-medium">Preview — {rows.length} linhas</span>
-        <button onClick={reset} className="p-1 rounded hover:bg-muted"><X className="w-4 h-4" /></button>
+    <div className="space-y-4 border rounded-xl p-4 bg-card shadow-sm animate-in fade-in duration-300">
+      <div className="flex justify-between items-center border-b pb-2">
+        <span className="text-[10px] font-black uppercase text-primary tracking-widest italic">ZENTRA-X // {step === 'map' ? 'MAPEAMENTO' : 'REVISÃO'}</span>
+        <Button variant="ghost" size="sm" onClick={reset} className="h-8 w-8 p-0 rounded-full hover:bg-destructive/10 text-destructive"><X className="w-5 h-5" /></Button>
       </div>
-      <div className="rounded-lg border border-border bg-card overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Data</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Obra</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Prof.</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Cat.</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Tipo</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-right">Valor</th>
-              <th className="text-xs font-medium text-muted-foreground p-2.5 text-left">Turnos</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className={`border-b border-border last:border-0 ${r.error ? 'bg-destructive/5' : ''}`}>
-                <td className="text-xs p-2.5">{r.data}</td>
-                <td className="text-xs p-2.5">{r.obraNome}</td>
-                <td className="text-xs p-2.5">{r.profissional}</td>
-                <td className="text-xs p-2.5">{r.categoria}</td>
-                <td className="text-xs p-2.5">{r.tipo}</td>
-                <td className={`text-xs p-2.5 text-right ${r.error ? 'text-destructive font-semibold' : ''}`}>
-                  {r.valor} {r.error && <span className="block text-[10px]">{r.error}</span>}
-                </td>
-                <td className="text-xs p-2.5">{r.turnos}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {hasErrors && <p className="text-xs text-destructive font-medium">Linhas com erro serão ignoradas</p>}
-      <Button onClick={handleConfirm} className="w-full">Confirmar Importação</Button>
+
+      {step === 'map' ? (
+        <div className="space-y-4">
+          <div className="bg-muted/50 p-2 rounded text-[10px] font-medium truncate">Arquivo: {fileName}</div>
+          {['data', 'obraNome', 'profissional', 'valor'].map(field => (
+            <div key={field} className="flex items-center gap-4">
+              <label className="text-[10px] font-bold w-24 uppercase text-muted-foreground">{field}</label>
+              <select value={mapping[field]} onChange={e => setMapping(p => ({...p, [field]: e.target.value}))} className={`flex-1 p-2 text-xs border rounded-lg bg-background ${mapping[field] ? 'border-primary/50 bg-primary/5' : 'border-dashed'}`}>
+                <option value="">-- Selecionar Coluna --</option>
+                {headers.map((h, i) => <option key={i} value={String(i)}>{h}</option>)}
+              </select>
+            </div>
+          ))}
+          <Button onClick={applyMapping} className="w-full font-bold uppercase py-6">Visualizar Lançamentos</Button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="max-h-96 overflow-auto border rounded-lg">
+            <table className="w-full text-[11px]">
+              <thead className="bg-muted sticky top-0 z-10">
+                <tr>
+                  <th className="p-3 text-left">Profissional</th>
+                  <th className="p-3 text-left">Obra / Destino</th>
+                  <th className="p-3 text-right">Valor</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((r, i) => (
+                  <tr key={i} className="hover:bg-muted/30 transition-colors">
+                    <td className="p-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-muted-foreground uppercase text-[9px]">{r.profissionalOriginal}</span>
+                        <select 
+                          value={r.profissionalIdSelecionada} 
+                          onChange={e => { const n = [...rows]; n[i].profissionalIdSelecionada = e.target.value; setRows(n); }}
+                          className={`p-1 border rounded-md text-[10px] ${!r.profissionalIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
+                        >
+                          <option value="">Vincular Profissional...</option>
+                          {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                        </select>
+                        {!r.profissionalIdSelecionada && <CadastrarProfissionalModal onAdd={onAddProfissional} defaultValues={{nome: r.profissionalOriginal}} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ CADASTRAR NOVO</button>} />}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-bold text-muted-foreground uppercase text-[9px]">{r.obraNomeOriginal || 'N/A'}</span>
+                        <select 
+                          value={r.obraIdSelecionada} 
+                          onChange={e => { const n = [...rows]; n[i].obraIdSelecionada = e.target.value; setRows(n); }} 
+                          className={`p-1 border rounded-md text-[10px] ${!r.obraIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
+                        >
+                          <option value="">Vincular Obra...</option>
+                          {obras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                        </select>
+                        {!r.obraIdSelecionada && <CadastrarObraModal onAdd={onAddObra} defaultNome={r.obraNomeOriginal} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ NOVA OBRA</button>} />}
+                      </div>
+                    </td>
+                    <td className="p-3 text-right font-black text-primary">R$ {r.valorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <Button 
+            disabled={rows.some(r => !r.obraIdSelecionada || !r.profissionalIdSelecionada)}
+            onClick={() => onImport(rows.map(r => ({ obraId: r.obraIdSelecionada, profissionalId: r.profissionalIdSelecionada, valor: r.valorNum, data: r.dataFormatada, tipo: 'empreitada' as any, turnos: [] })))} 
+            className="w-full py-6 font-black uppercase"
+          >
+            Finalizar Importação ({rows.length})
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
