@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, PieChart, BarChart3, Upload, Tag, LogOut, Trash2, Users, Building2 } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, Tag, LogOut, Trash2, Users, Building2, Users2, Filter, Percent } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -9,34 +9,42 @@ import { ResumoSemana } from '@/components/ResumoSemana';
 import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
 import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
+import { CadastrarClienteModal } from '@/components/CadastrarClienteModal';
 import { ConfigurarCategorias } from '@/components/ConfigurarCategorias';
 import { RelatoriosObra } from '@/components/RelatoriosObra';
+import { GestaoComissoes } from '@/components/GestaoComissoes';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
+import logo from '@/assets/logo-zentrax.png';
 
 const Index = () => {
   const { user, permissions, tenantId, tenantNome, isSuperAdmin, signOut } = useAuth();
 
-  // Passa o tenantId para o store — todas as queries ficam isoladas
   const {
-    lancamentos, obras, profissionais, categorias,
-    addLancamento, addMultipleLancamentos, addObra, addProfissional, updateCategorias,
-    deleteObra, deleteProfissional, deleteLancamento,
+    lancamentos, obras, profissionais, clientes, parceiros, comissoes, categorias,
+    addLancamento, addMultipleLancamentos, addObra, addProfissional, addCliente,
+    addParceiro, addComissao, updateCategorias,
+    deleteObra, deleteProfissional, deleteLancamento, deleteCliente,
+    deleteParceiro, deleteComissao, updateComissaoStatus,
   } = useAppStore(tenantId);
 
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('lancamento');
+  const [filtroCliente, setFiltroCliente] = useState('');
+  const [filtroTipoContrato, setFiltroTipoContrato] = useState('');
 
   const sectionRefs = {
-    lancamento:    useRef<HTMLDivElement>(null),
-    orcamento:     useRef<HTMLDivElement>(null),
-    relatorios:    useRef<HTMLDivElement>(null),
+    lancamento: useRef<HTMLDivElement>(null),
+    clientes: useRef<HTMLDivElement>(null),
+    orcamento: useRef<HTMLDivElement>(null),
     relatoriosObra: useRef<HTMLDivElement>(null),
-    categorias:    useRef<HTMLDivElement>(null),
-    importar:      useRef<HTMLDivElement>(null),
+    comissoes: useRef<HTMLDivElement>(null),
+    relatorios: useRef<HTMLDivElement>(null),
+    importar: useRef<HTMLDivElement>(null),
   };
 
   const navigateTo = (section: string) => {
@@ -65,10 +73,18 @@ const Index = () => {
     return () => observer.disconnect();
   }, []);
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
-  };
+  // Filtered obras based on client and contract type
+  const obrasFiltradas = obras.filter(o => {
+    if (filtroCliente && o.clienteId !== filtroCliente) return false;
+    if (filtroTipoContrato && o.tipoContrato !== filtroTipoContrato) return false;
+    return true;
+  });
+
+  const lancamentosFiltrados = filtroCliente || filtroTipoContrato
+    ? lancamentos.filter(l => obrasFiltradas.some(o => o.id === l.obraId))
+    : lancamentos;
+
+  const handleLogout = async () => { await signOut(); navigate('/login'); };
 
   const handleDeleteObra = async (id: string, nome: string) => {
     if (!confirm(`Excluir obra "${nome}"?`)) return;
@@ -88,6 +104,12 @@ const Index = () => {
     toast({ title: 'Lançamento excluído' });
   };
 
+  const handleDeleteCliente = async (id: string, nome: string) => {
+    if (!confirm(`Excluir cliente "${nome}"?`)) return;
+    await deleteCliente(id);
+    toast({ title: 'Cliente excluído', description: nome });
+  };
+
   const showFinancial = permissions.podeEditarOrcamento;
 
   return (
@@ -96,53 +118,32 @@ const Index = () => {
         <div className="container py-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-sm border border-white/10">
-                <span className="text-sm font-black text-white tracking-tighter">ZX</span>
-              </div>
+              <img src={logo} alt="Logo" className="w-10 h-10 rounded-xl object-contain" />
               <div>
                 <h1 className="text-lg font-extrabold tracking-tight text-white">ZENTRA-X</h1>
                 <div className="flex items-center gap-1.5">
                   <Building2 className="w-3 h-3 text-white/40" />
-                  {/* Nome da empresa do tenant — cada cliente vê o seu */}
                   <p className="text-xs text-white/60">{tenantNome || user?.email}</p>
                 </div>
               </div>
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} />}
+              {permissions.podeCriarObra && <CadastrarClienteModal onAdd={addCliente} />}
+              {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} clientes={clientes} />}
               {permissions.podeCadastrarProfissional && <CadastrarProfissionalModal onAdd={addProfissional} />}
               {permissions.podeGerenciarAcessos && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  onClick={() => navigate('/gerenciar-acessos')}
-                >
-                  <Users className="w-4 h-4" />
-                  Equipe
+                <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => navigate('/gerenciar-acessos')}>
+                  <Users className="w-4 h-4" /> Equipe
                 </Button>
               )}
-              {/* Atalho para o super admin voltar ao painel */}
               {isSuperAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                  onClick={() => navigate('/super-admin')}
-                >
-                  <Building2 className="w-4 h-4" />
-                  Admin
+                <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => navigate('/super-admin')}>
+                  <Building2 className="w-4 h-4" /> Admin
                 </Button>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4" />
-                Sair
+              <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={handleLogout}>
+                <LogOut className="w-4 h-4" /> Sair
               </Button>
             </div>
           </div>
@@ -151,26 +152,49 @@ const Index = () => {
 
       <NavAnchor active={activeSection} onNavigate={navigateTo} permissions={permissions} />
 
+      {/* Filtros Inteligentes */}
+      {(clientes.length > 0 || obras.length > 0) && (
+        <div className="container pt-4">
+          <div className="flex flex-wrap gap-2 items-center rounded-lg border border-border bg-card p-3">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase">Filtros:</span>
+            {clientes.length > 0 && (
+              <select value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs">
+                <option value="">Todos os clientes</option>
+                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            )}
+            <select value={filtroTipoContrato} onChange={e => setFiltroTipoContrato(e.target.value)} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs">
+              <option value="">Todos os tipos</option>
+              {Object.entries(TIPO_CONTRATO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+            {(filtroCliente || filtroTipoContrato) && (
+              <button onClick={() => { setFiltroCliente(''); setFiltroTipoContrato(''); }} className="text-xs text-primary font-semibold hover:underline">Limpar filtros</button>
+            )}
+          </div>
+        </div>
+      )}
+
       <main className="container pb-24 space-y-10">
         {permissions.podeLancarDespesa && (
           <section ref={sectionRefs.lancamento} className="pt-8">
             <SectionDivider title="Formulário de Lançamento" icon={FileText} />
             <div className="mt-2 rounded-lg border border-border bg-card p-5">
               <FormularioLancamento
-                obras={obras}
+                obras={obrasFiltradas}
                 profissionais={profissionais}
                 onSubmit={addLancamento}
                 onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined}
               />
             </div>
 
-            {lancamentos.length > 0 && (
+            {lancamentosFiltrados.length > 0 && (
               <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
                 <div className="px-4 py-3 bg-muted/30 border-b border-border">
                   <span className="text-sm font-semibold">Últimos Lançamentos</span>
                 </div>
                 <div className="divide-y divide-border max-h-64 overflow-y-auto">
-                  {lancamentos.slice(-10).reverse().map(l => (
+                  {lancamentosFiltrados.slice(-10).reverse().map(l => (
                     <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                       <div className="flex-1 min-w-0">
                         <span className="font-medium">{l.profissional || l.profissionalId}</span>
@@ -179,10 +203,7 @@ const Index = () => {
                         <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
                       </div>
                       {permissions.podeGerenciarAcessos && (
-                        <button
-                          onClick={() => handleDeleteLancamento(l.id)}
-                          className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2"
-                        >
+                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -194,17 +215,52 @@ const Index = () => {
           </section>
         )}
 
-        {permissions.podeCriarObra && obras.length > 0 && (
+        {/* Clientes */}
+        {permissions.podeCriarObra && (
+          <section ref={sectionRefs.clientes} className="pt-4">
+            <SectionDivider title="Clientes" icon={Users2} />
+            {clientes.length > 0 ? (
+              <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
+                {clientes.map(c => (
+                  <div key={c.id} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <span className="text-sm font-medium">{c.nome}</span>
+                      {c.cpfCnpj && <span className="text-xs text-muted-foreground ml-2">{c.cpfCnpj}</span>}
+                      {c.contato && <span className="text-xs text-muted-foreground ml-2">· {c.contato}</span>}
+                      <div className="text-[10px] text-muted-foreground mt-0.5">
+                        {obras.filter(o => o.clienteId === c.id).length} obra(s) vinculada(s)
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteCliente(c.id, c.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-2 rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                Nenhum cliente cadastrado. Use o botão "Novo Cliente" acima.
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Obras */}
+        {permissions.podeCriarObra && obrasFiltradas.length > 0 && (
           <section>
-            <SectionDivider title="Obras Cadastradas" icon={PieChart} />
+            <SectionDivider title="Obras / Projetos" icon={PieChart} />
             <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
-              {obras.map(o => (
+              {obrasFiltradas.map(o => (
                 <div key={o.id} className="flex items-center justify-between px-4 py-3">
                   <div>
                     <span className="text-sm font-medium">{o.nome}</span>
-                    <span className="text-xs text-muted-foreground ml-2">
-                      R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase">
+                      {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
                     </span>
+                    {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </div>
                   </div>
                   <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
                     <Trash2 className="w-4 h-4" />
@@ -215,6 +271,7 @@ const Index = () => {
           </section>
         )}
 
+        {/* Profissionais */}
         {permissions.podeCadastrarProfissional && profissionais.length > 0 && (
           <section>
             <SectionDivider title="Profissionais Cadastrados" icon={Tag} />
@@ -224,6 +281,7 @@ const Index = () => {
                   <div>
                     <span className="text-sm font-medium">{p.nome}</span>
                     <span className="text-xs text-muted-foreground ml-2">{p.categoria}</span>
+                    {p.documento && <span className="text-xs text-muted-foreground ml-2">DOC: {p.documento}</span>}
                     {p.chavePix && <span className="text-xs text-muted-foreground ml-2">PIX: {p.chavePix}</span>}
                   </div>
                   <button onClick={() => handleDeleteProfissional(p.id, p.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
@@ -239,7 +297,7 @@ const Index = () => {
           <section ref={sectionRefs.orcamento}>
             <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
             <div className="mt-2">
-              <DashboardOrcamento obras={obras} lancamentos={lancamentos} />
+              <DashboardOrcamento obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
             </div>
           </section>
         )}
@@ -248,7 +306,26 @@ const Index = () => {
           <section ref={sectionRefs.relatoriosObra}>
             <SectionDivider title="Relatórios de Obra" icon={BarChart3} />
             <div className="mt-2">
-              <RelatoriosObra obras={obras} lancamentos={lancamentos} />
+              <RelatoriosObra obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
+            </div>
+          </section>
+        )}
+
+        {/* Comissões */}
+        {permissions.podeGerenciarAcessos && (
+          <section ref={sectionRefs.comissoes}>
+            <SectionDivider title="Comissões e Parceiros" icon={Percent} />
+            <div className="mt-2">
+              <GestaoComissoes
+                parceiros={parceiros}
+                comissoes={comissoes}
+                obras={obras}
+                onAddParceiro={addParceiro}
+                onAddComissao={addComissao}
+                onUpdateStatus={updateComissaoStatus}
+                onDeleteComissao={deleteComissao}
+                onDeleteParceiro={deleteParceiro}
+              />
             </div>
           </section>
         )}
@@ -257,16 +334,7 @@ const Index = () => {
           <section ref={sectionRefs.relatorios}>
             <SectionDivider title="Resumo da Semana" icon={BarChart3} />
             <div className="mt-2">
-              <ResumoSemana lancamentos={lancamentos} obras={obras} profissionais={profissionais} />
-            </div>
-          </section>
-        )}
-
-        {showFinancial && (
-          <section ref={sectionRefs.categorias}>
-            <SectionDivider title="Categorias de Serviço" icon={Tag} />
-            <div className="mt-2 rounded-lg border border-border bg-card p-5">
-              <ConfigurarCategorias categorias={categorias} onUpdate={updateCategorias} />
+              <ResumoSemana lancamentos={lancamentosFiltrados} obras={obrasFiltradas} profissionais={profissionais} />
             </div>
           </section>
         )}
@@ -275,7 +343,13 @@ const Index = () => {
           <section ref={sectionRefs.importar}>
             <SectionDivider title="Importar Dados" icon={Upload} />
             <div className="mt-2">
-              <ImportarPlanilha obras={obras} onImport={addMultipleLancamentos} />
+              <ImportarPlanilha
+                obras={obras}
+                profissionais={profissionais}
+                onImport={addMultipleLancamentos}
+                onAddProfissional={addProfissional}
+                onAddObra={addObra}
+              />
             </div>
           </section>
         )}

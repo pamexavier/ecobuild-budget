@@ -1,46 +1,41 @@
 import { useState, useRef, useCallback } from 'react';
-import { Upload, X, FileSpreadsheet, AlertTriangle, UserPlus, FilePlus, AlertCircle } from 'lucide-react';
-import { Lancamento, Obra, Profissional } from '@/lib/types';
+import { Upload, X, UserPlus } from 'lucide-react';
+import { Obra, Profissional, LancamentoInsert } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { CadastrarProfissionalModal } from './CadastrarProfissionalModal';
 import { CadastrarObraModal } from './CadastrarObraModal';
 
-// --- INTELIGÊNCIA DE LIMPEZA E BUSCA ---
+const normalize = (str: string) =>
+  str?.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || "";
 
-const normalize = (str: string) => 
-  str?.toLowerCase()
-     .trim()
-     .normalize("NFD")
-     .replace(/[\u0300-\u036f]/g, "") || "";
+const cleanForMatch = (str: string) =>
+  normalize(str).replace(/\b(ltda|me|epp|sa|s\/a|eireli|cnpj|cpf|servicos|comercio|artigos|de|da|do)\b/gi, '')
+    .replace(/[0-9.\/\-]/g, '').replace(/\s+/g, ' ').trim();
 
-const cleanForMatch = (str: string) => {
-  return normalize(str)
-    .replace(/\b(ltda|me|epp|sa|s\/a|eireli|cnpj|cpf|servicos|comercio|artigos|de|da|do)\b/gi, '')
-    .replace(/[0-9.\/\-]/g, '') 
-    .replace(/\s+/g, ' ')       
-    .trim();
+const CPF_REGEX = /\d{3}[.\s]?\d{3}[.\s]?\d{3}[-.\s]?\d{2}/;
+const CNPJ_REGEX = /\d{2}[.\s]?\d{3}[.\s]?\d{3}[\/.\s]?\d{4}[-.\s]?\d{2}/;
+
+const extractDocumento = (text: string): string | null => {
+  const cnpjMatch = text.match(CNPJ_REGEX);
+  if (cnpjMatch) return cnpjMatch[0];
+  const cpfMatch = text.match(CPF_REGEX);
+  if (cpfMatch) return cpfMatch[0];
+  return null;
 };
 
 const findBestMatch = (original: string, list: any[], field: string) => {
-  if (!list) return null; // Prevenção contra lista nula
+  if (!list) return null;
   const target = cleanForMatch(original);
   if (!target || target.length < 3) return null;
-
   const exact = list.find(item => cleanForMatch(item[field]) === target);
   if (exact) return exact;
-
   const partial = list.find(item => {
     const sysName = cleanForMatch(item[field]);
     return sysName.length > 2 && (target.includes(sysName) || sysName.includes(target));
   });
   if (partial) return partial;
-
   const firstWord = target.split(' ')[0];
-  if (firstWord.length > 3) {
-    const wordMatch = list.find(item => cleanForMatch(item[field]).startsWith(firstWord));
-    return wordMatch;
-  }
-
+  if (firstWord.length > 3) return list.find(item => cleanForMatch(item[field]).startsWith(firstWord)) || null;
   return null;
 };
 
@@ -48,13 +43,13 @@ const MAP_KEYWORDS: Record<string, string[]> = {
   data: ['data', 'vencimento', 'date', 'dia', 'pagamento', 'competencia'],
   obraNome: ['obra', 'local', 'destino', 'projeto', 'unidade', 'canteiro'],
   profissional: ['profissional', 'nome', 'fornecedor', 'prestador', 'favorecido', 'recebedor'],
-  valor: ['valor', 'preco', 'custo', 'total', 'montante', 'pago']
+  valor: ['valor', 'preco', 'custo', 'total', 'montante', 'pago'],
 };
 
 interface Props {
   obras: Obra[];
   profissionais: Profissional[];
-  onImport: (items: Omit<Lancamento, 'id'>[]) => void;
+  onImport: (items: LancamentoInsert[]) => void;
   onAddProfissional: (p: Omit<Profissional, 'id'>) => void;
   onAddObra: (o: Omit<Obra, 'id' | 'gastoAtual'>) => void;
 }
@@ -68,31 +63,26 @@ interface ParsedRow {
   profissionalOriginal: string;
   profissionalIdSelecionada: string;
   valorNum: number;
+  documentoExtraido: string | null;
 }
 
 export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissional, onAddObra }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
-  const [mapping, setMapping] = useState<Record<string, string>>({
-    data: '', obraNome: '', profissional: '', categoria: '', valor: ''
-  });
+  const [mapping, setMapping] = useState<Record<string, string>>({ data: '', obraNome: '', profissional: '', valor: '' });
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<string[][]>([]);
   const [fileName, setFileName] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const reset = () => {
-    setStep('upload'); setRows([]); setFileName('');
-    setMapping({ data: '', obraNome: '', profissional: '', categoria: '', valor: '' });
-  };
+  const reset = () => { setStep('upload'); setRows([]); setFileName(''); setMapping({ data: '', obraNome: '', profissional: '', valor: '' }); };
 
   const parseCSV = useCallback((text: string) => {
     const delimiter = text.indexOf(';') > -1 ? ';' : ',';
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
     if (lines.length < 2) return;
-    
     const splitCSV = (str: string) => {
-      const res = []; let q = false; let c = '';
+      const res: string[] = []; let q = false; let c = '';
       for (let i = 0; i < str.length; i++) {
         if (str[i] === '"') q = !q;
         else if (str[i] === delimiter && !q) { res.push(c.trim()); c = ''; }
@@ -101,12 +91,10 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
       res.push(c.trim());
       return res.map(s => s.replace(/^"|"$/g, '').trim());
     };
-
     const hdrs = splitCSV(lines[0]);
     setHeaders(hdrs);
     setRawRows(lines.slice(1).map(l => splitCSV(l)));
-
-    const autoMap: any = { data: '', obraNome: '', profissional: '', categoria: '', valor: '' };
+    const autoMap: any = { data: '', obraNome: '', profissional: '', valor: '' };
     hdrs.forEach((h, i) => {
       const hn = normalize(h);
       Object.keys(MAP_KEYWORDS).forEach(k => {
@@ -124,16 +112,18 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
     const colValor = parseInt(mapping.valor);
 
     const parsed = rawRows.map((row, index) => {
-      // Foca apenas no que foi mapeado, ignorando outras colunas
       const obraRaw = !isNaN(colObra) ? (row[colObra] || '') : '';
       const profRaw = !isNaN(colProf) ? (row[colProf] || '') : '';
       const dataRaw = !isNaN(colData) ? (row[colData] || '') : '';
       const valorRaw = !isNaN(colValor) ? (row[colValor] || '0') : '0';
-      
+
       const matchedObra = findBestMatch(obraRaw, obras, 'nome');
       const matchedProf = findBestMatch(profRaw, profissionais, 'nome');
-
       const valorNum = Math.abs(parseFloat(valorRaw.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'))) || 0;
+
+      // Extrai CPF/CNPJ de todas as colunas da linha
+      const rowText = row.join(' ');
+      const documentoExtraido = extractDocumento(rowText);
 
       return {
         id: index,
@@ -143,10 +133,10 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
         obraIdSelecionada: matchedObra?.id || '',
         profissionalOriginal: profRaw,
         profissionalIdSelecionada: matchedProf?.id || '',
-        valorNum
+        valorNum,
+        documentoExtraido,
       };
     });
-
     setRows(parsed);
     setStep('preview');
   };
@@ -160,8 +150,8 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
         </button>
         <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={e => {
           const f = e.target.files?.[0];
-          if(f) { setFileName(f.name); const r = new FileReader(); r.onload = (ev) => parseCSV(ev.target?.result as string); r.readAsText(f); }
-        }}/>
+          if (f) { setFileName(f.name); const r = new FileReader(); r.onload = (ev) => parseCSV(ev.target?.result as string); r.readAsText(f); }
+        }} />
       </div>
     );
   }
@@ -179,7 +169,7 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
           {['data', 'obraNome', 'profissional', 'valor'].map(field => (
             <div key={field} className="flex items-center gap-4">
               <label className="text-[10px] font-bold w-24 uppercase text-muted-foreground">{field}</label>
-              <select value={mapping[field]} onChange={e => setMapping(p => ({...p, [field]: e.target.value}))} className={`flex-1 p-2 text-xs border rounded-lg bg-background ${mapping[field] ? 'border-primary/50 bg-primary/5' : 'border-dashed'}`}>
+              <select value={mapping[field]} onChange={e => setMapping(p => ({ ...p, [field]: e.target.value }))} className={`flex-1 p-2 text-xs border rounded-lg bg-background ${mapping[field] ? 'border-primary/50 bg-primary/5' : 'border-dashed'}`}>
                 <option value="">-- Selecionar Coluna --</option>
                 {headers.map((h, i) => <option key={i} value={String(i)}>{h}</option>)}
               </select>
@@ -204,31 +194,44 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                     <td className="p-3">
                       <div className="flex flex-col gap-1">
                         <span className="font-bold text-muted-foreground uppercase text-[9px]">{r.profissionalOriginal}</span>
-                        <select 
-                          value={r.profissionalIdSelecionada} 
+                        {r.documentoExtraido && (
+                          <span className="text-[9px] text-primary font-mono bg-primary/10 px-1.5 py-0.5 rounded w-fit">DOC: {r.documentoExtraido}</span>
+                        )}
+                        <select
+                          value={r.profissionalIdSelecionada}
                           onChange={e => { const n = [...rows]; n[i].profissionalIdSelecionada = e.target.value; setRows(n); }}
                           className={`p-1 border rounded-md text-[10px] ${!r.profissionalIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
                         >
                           <option value="">Vincular Profissional...</option>
-                          {/* Correção do erro de undefined usando optional chaining */}
                           {profissionais?.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                         </select>
-                        {!r.profissionalIdSelecionada && <CadastrarProfissionalModal onAdd={onAddProfissional} defaultValues={{nome: r.profissionalOriginal}} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ CADASTRAR NOVO</button>} />}
+                        {!r.profissionalIdSelecionada && (
+                          <CadastrarProfissionalModal
+                            onAdd={onAddProfissional}
+                            defaultValues={{ nome: r.profissionalOriginal, documento: r.documentoExtraido || undefined }}
+                            trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ CADASTRAR NOVO</button>}
+                          />
+                        )}
                       </div>
                     </td>
                     <td className="p-3">
                       <div className="flex flex-col gap-1">
                         <span className="font-bold text-muted-foreground uppercase text-[9px]">{r.obraNomeOriginal || 'N/A'}</span>
-                        <select 
-                          value={r.obraIdSelecionada} 
-                          onChange={e => { const n = [...rows]; n[i].obraIdSelecionada = e.target.value; setRows(n); }} 
+                        <select
+                          value={r.obraIdSelecionada}
+                          onChange={e => { const n = [...rows]; n[i].obraIdSelecionada = e.target.value; setRows(n); }}
                           className={`p-1 border rounded-md text-[10px] ${!r.obraIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
                         >
                           <option value="">Vincular Obra...</option>
-                          {/* Correção do erro de undefined usando optional chaining */}
                           {obras?.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
                         </select>
-                        {!r.obraIdSelecionada && <CadastrarObraModal onAdd={onAddObra} defaultNome={r.obraNomeOriginal} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ NOVA OBRA</button>} />}
+                        {!r.obraIdSelecionada && (
+                          <CadastrarObraModal
+                            onAdd={onAddObra}
+                            defaultNome={r.obraNomeOriginal}
+                            trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ NOVA OBRA</button>}
+                          />
+                        )}
                       </div>
                     </td>
                     <td className="p-3 text-right font-black text-primary">R$ {r.valorNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
@@ -237,9 +240,16 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
               </tbody>
             </table>
           </div>
-          <Button 
+          <Button
             disabled={rows.some(r => !r.obraIdSelecionada || !r.profissionalIdSelecionada)}
-            onClick={() => onImport(rows.map(r => ({ obraId: r.obraIdSelecionada, profissionalId: r.profissionalIdSelecionada, valor: r.valorNum, data: r.dataFormatada, tipo: 'empreitada' as any, turnos: [] })))} 
+            onClick={() => onImport(rows.map(r => ({
+              obraId: r.obraIdSelecionada,
+              profissionalId: r.profissionalIdSelecionada,
+              valor: r.valorNum,
+              data: r.dataFormatada,
+              tipo: 'empreitada' as const,
+              turnos: [],
+            })))}
             className="w-full py-6 font-black uppercase"
           >
             Finalizar Importação ({rows.length})

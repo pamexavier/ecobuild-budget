@@ -4,12 +4,31 @@ export interface OrcamentoCategoria {
   valorPrevisto: number;
 }
 
+export interface Cliente {
+  id: string;
+  nome: string;
+  razaoSocial?: string;
+  cpfCnpj?: string;
+  contato?: string;
+}
+
+export type TipoContrato = 'projeto' | 'obra' | 'consultoria';
+
+export const TIPO_CONTRATO_LABELS: Record<TipoContrato, string> = {
+  projeto: 'Projeto',
+  obra: 'Reforma / Obra',
+  consultoria: 'Consultoria / Acompanhamento',
+};
+
 export interface Obra {
   id: string;
   nome: string;
   orcamentoLimite: number;
   gastoAtual: number;
   categorias: OrcamentoCategoria[];
+  clienteId?: string;
+  clienteNome?: string;
+  tipoContrato: TipoContrato;
 }
 
 export interface Profissional {
@@ -17,8 +36,8 @@ export interface Profissional {
   nome: string;
   categoria: string;
   chavePix?: string;
-  tipoChavePix?: string; // NOVO CAMPO
-  documento?: string;    // NOVO CAMPO (Substituiu o cpf)
+  tipoChavePix?: string;
+  documento?: string;
 }
 
 export type TipoLancamento = 'diaria' | 'empreitada';
@@ -41,6 +60,40 @@ export interface Lancamento {
   fotoUrl?: string;
 }
 
+/** Tipo simplificado para inserções em massa (importação) */
+export interface LancamentoInsert {
+  obraId: string;
+  profissionalId: string;
+  valor: number;
+  data: string;
+  tipo: TipoLancamento;
+  turnos: string[];
+}
+
+export interface Parceiro {
+  id: string;
+  nome: string;
+  comissaoProjetoPct: number;
+  comissaoObraPct: number;
+  comissaoRtPct: number;
+}
+
+export interface Comissao {
+  id: string;
+  parceiroId: string;
+  parceiroNome?: string;
+  tipo: 'projeto' | 'obra' | 'rt';
+  descricao?: string;
+  valorBase: number;
+  percentual: number;
+  valorComissao: number;
+  status: 'pendente' | 'pago';
+  dataLancamento: string;
+  dataPagamento?: string;
+  obraId?: string;
+  obraNome?: string;
+}
+
 export type Turno = 'Manhã' | 'Tarde' | 'Noite';
 
 export const CATEGORIAS = ['Pedreiro', 'Elétrica', 'Hidráulica', 'Pintura', 'Outros'] as const;
@@ -49,25 +102,5 @@ export const CATEGORIAS_ORCAMENTO_SUGESTOES = [
   'Fundação', 'Alvenaria', 'Hidráulica', 'Elétrica', 'Pintura', 'Acabamento', 'Cobertura', 'Terraplanagem'
 ];
 
-export const OBRAS_MOCK: Obra[] = [
-  { id: '1', nome: 'Residencial Verde', orcamentoLimite: 50000, gastoAtual: 28500, categorias: [
-    { id: 'c1', nome: 'Fundação', valorPrevisto: 15000 },
-    { id: 'c2', nome: 'Alvenaria', valorPrevisto: 20000 },
-    { id: 'c3', nome: 'Hidráulica', valorPrevisto: 15000 },
-  ]},
-  { id: '2', nome: 'Edifício Horizonte', orcamentoLimite: 120000, gastoAtual: 105000, categorias: [
-    { id: 'c4', nome: 'Elétrica', valorPrevisto: 40000 },
-    { id: 'c5', nome: 'Pintura', valorPrevisto: 30000 },
-    { id: 'c6', nome: 'Acabamento', valorPrevisto: 50000 },
-  ]},
-  { id: '3', nome: 'Casa Modelo Sustentável', orcamentoLimite: 30000, gastoAtual: 12000, categorias: [
-    { id: 'c7', nome: 'Fundação', valorPrevisto: 10000 },
-    { id: 'c8', nome: 'Alvenaria', valorPrevisto: 20000 },
-  ]},
-];
-
-export const PROFISSIONAIS_MOCK: Profissional[] = [
-  { id: '1', nome: 'Carlos Silva', categoria: 'Pedreiro', chavePix: 'carlos.silva@pix.com' },
-  { id: '2', nome: 'Ana Rodrigues', categoria: 'Elétrica', chavePix: '11999887766' },
-  { id: '3', nome: 'Roberto Santos', categoria: 'Hidráulica', chavePix: 'roberto.santos@email.com' },
-];
+export const OBRAS_MOCK: Obra[] = [];
+export const PROFISSIONAIS_MOCK: Profissional[] = [];
