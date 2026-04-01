@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Sun, Sunset, Moon, Clock, Briefcase, DollarSign, Check, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
+import { useAuth } from '@/hooks/useAuth';
 import { Turno, TipoLancamento } from '@/lib/types';
 
 const TURNOS: { label: Turno; icon: typeof Sun }[] = [
@@ -11,7 +12,8 @@ const TURNOS: { label: Turno; icon: typeof Sun }[] = [
 ];
 
 const Enviar = () => {
-  const { obras, profissionais, addLancamento } = useAppStore();
+  const { tenantId } = useAuth();
+  const { obras, profissionais, addLancamento } = useAppStore(tenantId);
 
   const [obraId, setObraId] = useState('');
   const [profissionalId, setProfissionalId] = useState('');
@@ -41,7 +43,7 @@ const Enviar = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!obraId || !profissionalId || !categoriaOrcamentoId || !assinadoPor) return;
+    if (!obraId || !profissionalId || !assinadoPor) return;
     if (tipo === 'diaria' && (turnos.length === 0 || !valorDiaria)) return;
     if (tipo === 'empreitada' && (!valorEmpreitada || !descricaoEtapa)) return;
     if (valorCalculado <= 0) return;
@@ -55,7 +57,7 @@ const Enviar = () => {
       profissionalId,
       profissional: selectedProf?.nome.toUpperCase() || '',
       categoria: selectedProf?.categoria.toUpperCase() || '',
-      categoriaOrcamentoId,
+      categoriaOrcamentoId: categoriaOrcamentoId || '',
       categoriaOrcamentoNome: catOrc?.nome || '',
       tipo,
       turnos: tipo === 'diaria' ? turnos : [],
@@ -69,15 +71,9 @@ const Enviar = () => {
   };
 
   const resetForm = () => {
-    setObraId('');
-    setProfissionalId('');
-    setCategoriaOrcamentoId('');
-    setTurnos([]);
-    setValorDiaria('');
-    setValorEmpreitada('');
-    setDescricaoEtapa('');
-    setAssinadoPor('');
-    setSubmitted(false);
+    setObraId(''); setProfissionalId(''); setCategoriaOrcamentoId('');
+    setTurnos([]); setValorDiaria(''); setValorEmpreitada('');
+    setDescricaoEtapa(''); setAssinadoPor(''); setSubmitted(false);
   };
 
   if (submitted) {
@@ -88,16 +84,8 @@ const Enviar = () => {
             <Check className="w-10 h-10 text-primary-foreground" />
           </div>
           <h2 className="text-2xl font-bold text-primary-foreground">Lançamento Enviado!</h2>
-          <p className="text-primary-foreground/80 text-lg">
-            R$ {valorCalculado.toFixed(2)} · {selectedObra?.nome}
-          </p>
-          <p className="text-primary-foreground/60 text-sm">Assinado por: {assinadoPor}</p>
-          <Button
-            onClick={resetForm}
-            className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-lg py-6 px-10 rounded-lg"
-          >
-            Novo Lançamento
-          </Button>
+          <p className="text-primary-foreground/80 text-lg">R$ {valorCalculado.toFixed(2)} · {selectedObra?.nome}</p>
+          <Button onClick={resetForm} className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 text-lg py-6 px-10 rounded-lg">Novo Lançamento</Button>
         </div>
       </div>
     );
@@ -118,7 +106,6 @@ const Enviar = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="p-5 space-y-5 max-w-lg mx-auto">
-        {/* Obra */}
         <div>
           <label className="text-base font-semibold block mb-2">Obra</label>
           <select value={obraId} onChange={e => { setObraId(e.target.value); setCategoriaOrcamentoId(''); }} className="w-full rounded-lg border border-input bg-card px-4 py-4 text-base appearance-none focus:outline-none focus:ring-2 focus:ring-ring">
@@ -127,7 +114,7 @@ const Enviar = () => {
           </select>
         </div>
 
-        {obraId && (
+        {obraId && categoriasObra.length > 0 && (
           <div>
             <label className="text-base font-semibold block mb-2">Categoria de Orçamento</label>
             <select value={categoriaOrcamentoId} onChange={e => setCategoriaOrcamentoId(e.target.value)} className="w-full rounded-lg border border-input bg-card px-4 py-4 text-base appearance-none focus:outline-none focus:ring-2 focus:ring-ring">

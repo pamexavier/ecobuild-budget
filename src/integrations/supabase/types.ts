@@ -14,6 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
+      clientes: {
+        Row: {
+          contato: string | null
+          cpf_cnpj: string | null
+          created_at: string
+          id: string
+          nome: string
+          razao_social: string | null
+          tenant_id: string
+        }
+        Insert: {
+          contato?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          razao_social?: string | null
+          tenant_id: string
+        }
+        Update: {
+          contato?: string | null
+          cpf_cnpj?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          razao_social?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
+      comissoes: {
+        Row: {
+          created_at: string
+          data_lancamento: string
+          data_pagamento: string | null
+          descricao: string | null
+          id: string
+          obra_id: string | null
+          parceiro_id: string
+          percentual: number
+          status: string
+          tenant_id: string
+          tipo: string
+          valor_base: number
+          valor_comissao: number
+        }
+        Insert: {
+          created_at?: string
+          data_lancamento?: string
+          data_pagamento?: string | null
+          descricao?: string | null
+          id?: string
+          obra_id?: string | null
+          parceiro_id: string
+          percentual?: number
+          status?: string
+          tenant_id: string
+          tipo?: string
+          valor_base?: number
+          valor_comissao?: number
+        }
+        Update: {
+          created_at?: string
+          data_lancamento?: string
+          data_pagamento?: string | null
+          descricao?: string | null
+          id?: string
+          obra_id?: string | null
+          parceiro_id?: string
+          percentual?: number
+          status?: string
+          tenant_id?: string
+          tipo?: string
+          valor_base?: number
+          valor_comissao?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comissoes_obra_id_fkey"
+            columns: ["obra_id"]
+            isOneToOne: false
+            referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comissoes_parceiro_id_fkey"
+            columns: ["parceiro_id"]
+            isOneToOne: false
+            referencedRelation: "parceiros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lancamentos: {
         Row: {
           created_at: string
@@ -64,27 +157,41 @@ export type Database = {
       }
       obras: {
         Row: {
+          cliente_id: string | null
           created_at: string
           gasto_atual: number
           id: string
           nome: string
           orcamento_limite: number
+          tipo_contrato: string
         }
         Insert: {
+          cliente_id?: string | null
           created_at?: string
           gasto_atual?: number
           id?: string
           nome: string
           orcamento_limite?: number
+          tipo_contrato?: string
         }
         Update: {
+          cliente_id?: string | null
           created_at?: string
           gasto_atual?: number
           id?: string
           nome?: string
           orcamento_limite?: number
+          tipo_contrato?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "obras_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       orcamentos_categoria: {
         Row: {
@@ -114,6 +221,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      parceiros: {
+        Row: {
+          comissao_obra_pct: number
+          comissao_projeto_pct: number
+          comissao_rt_pct: number
+          created_at: string
+          id: string
+          nome: string
+          tenant_id: string
+        }
+        Insert: {
+          comissao_obra_pct?: number
+          comissao_projeto_pct?: number
+          comissao_rt_pct?: number
+          created_at?: string
+          id?: string
+          nome: string
+          tenant_id: string
+        }
+        Update: {
+          comissao_obra_pct?: number
+          comissao_projeto_pct?: number
+          comissao_rt_pct?: number
+          created_at?: string
+          id?: string
+          nome?: string
+          tenant_id?: string
+        }
+        Relationships: []
       }
       profissionais: {
         Row: {
