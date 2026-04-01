@@ -13,31 +13,28 @@ const normalize = (str: string) =>
      .normalize("NFD")
      .replace(/[\u0300-\u036f]/g, "") || "";
 
-// Remove ruídos comuns de planilhas financeiras (LTDA, CNPJ, S/A, etc)
 const cleanForMatch = (str: string) => {
   return normalize(str)
     .replace(/\b(ltda|me|epp|sa|s\/a|eireli|cnpj|cpf|servicos|comercio|artigos|de|da|do)\b/gi, '')
-    .replace(/[0-9.\/\-]/g, '') // remove números e pontuações de CNPJ
-    .replace(/\s+/g, ' ')       // remove espaços duplos
+    .replace(/[0-9.\/\-]/g, '') 
+    .replace(/\s+/g, ' ')       
     .trim();
 };
 
 const findBestMatch = (original: string, list: any[], field: string) => {
+  if (!list) return null; // Prevenção contra lista nula
   const target = cleanForMatch(original);
   if (!target || target.length < 3) return null;
 
-  // 1. Tenta match exato após limpeza
   const exact = list.find(item => cleanForMatch(item[field]) === target);
   if (exact) return exact;
 
-  // 2. Tenta ver se o nome da planilha contém o nome do sistema (ou vice-versa)
   const partial = list.find(item => {
     const sysName = cleanForMatch(item[field]);
     return sysName.length > 2 && (target.includes(sysName) || sysName.includes(target));
   });
   if (partial) return partial;
 
-  // 3. Tenta match pela primeira palavra (ex: "FERRAMULTI" acha "FERRAMULTI COMERCIO...")
   const firstWord = target.split(' ')[0];
   if (firstWord.length > 3) {
     const wordMatch = list.find(item => cleanForMatch(item[field]).startsWith(firstWord));
@@ -47,7 +44,6 @@ const findBestMatch = (original: string, list: any[], field: string) => {
   return null;
 };
 
-// Dicionário de sinônimos para colunas (Mapeamento)
 const MAP_KEYWORDS: Record<string, string[]> = {
   data: ['data', 'vencimento', 'date', 'dia', 'pagamento', 'competencia'],
   obraNome: ['obra', 'local', 'destino', 'projeto', 'unidade', 'canteiro'],
@@ -110,7 +106,6 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
     setHeaders(hdrs);
     setRawRows(lines.slice(1).map(l => splitCSV(l)));
 
-    // Auto-Mapeamento de Colunas
     const autoMap: any = { data: '', obraNome: '', profissional: '', categoria: '', valor: '' };
     hdrs.forEach((h, i) => {
       const hn = normalize(h);
@@ -129,19 +124,21 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
     const colValor = parseInt(mapping.valor);
 
     const parsed = rawRows.map((row, index) => {
-      const obraRaw = row[colObra] || '';
-      const profRaw = row[colProf] || '';
+      // Foca apenas no que foi mapeado, ignorando outras colunas
+      const obraRaw = !isNaN(colObra) ? (row[colObra] || '') : '';
+      const profRaw = !isNaN(colProf) ? (row[colProf] || '') : '';
+      const dataRaw = !isNaN(colData) ? (row[colData] || '') : '';
+      const valorRaw = !isNaN(colValor) ? (row[colValor] || '0') : '0';
       
-      // A MÁGICA ACONTECE AQUI: Busca inteligente
       const matchedObra = findBestMatch(obraRaw, obras, 'nome');
       const matchedProf = findBestMatch(profRaw, profissionais, 'nome');
 
-      const valorNum = Math.abs(parseFloat((row[colValor] || '0').replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'))) || 0;
+      const valorNum = Math.abs(parseFloat(valorRaw.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'))) || 0;
 
       return {
         id: index,
-        data: row[colData] || '',
-        dataFormatada: (row[colData] || '').split('/').reverse().join('-'),
+        data: dataRaw,
+        dataFormatada: dataRaw.includes('/') ? dataRaw.split('/').reverse().join('-') : dataRaw,
         obraNomeOriginal: obraRaw,
         obraIdSelecionada: matchedObra?.id || '',
         profissionalOriginal: profRaw,
@@ -213,7 +210,8 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                           className={`p-1 border rounded-md text-[10px] ${!r.profissionalIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
                         >
                           <option value="">Vincular Profissional...</option>
-                          {profissionais.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                          {/* Correção do erro de undefined usando optional chaining */}
+                          {profissionais?.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
                         </select>
                         {!r.profissionalIdSelecionada && <CadastrarProfissionalModal onAdd={onAddProfissional} defaultValues={{nome: r.profissionalOriginal}} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ CADASTRAR NOVO</button>} />}
                       </div>
@@ -227,7 +225,8 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                           className={`p-1 border rounded-md text-[10px] ${!r.obraIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
                         >
                           <option value="">Vincular Obra...</option>
-                          {obras.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                          {/* Correção do erro de undefined usando optional chaining */}
+                          {obras?.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
                         </select>
                         {!r.obraIdSelecionada && <CadastrarObraModal onAdd={onAddObra} defaultNome={r.obraNomeOriginal} trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ NOVA OBRA</button>} />}
                       </div>
