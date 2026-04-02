@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, PieChart, BarChart3, Upload, Tag, LogOut, Trash2, Users, Building2, Users2, Filter, Percent } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, LogOut, Trash2, Users, Building2, Users2, Filter, Percent, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
@@ -10,7 +10,6 @@ import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
 import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
 import { CadastrarClienteModal } from '@/components/CadastrarClienteModal';
-import { ConfigurarCategorias } from '@/components/ConfigurarCategorias';
 import { RelatoriosObra } from '@/components/RelatoriosObra';
 import { GestaoComissoes } from '@/components/GestaoComissoes';
 import { useAppStore } from '@/lib/store';
@@ -18,7 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
-import logo from '@/assets/logo-zentrax.png';
+import logo from '@/assets/logo.png';
 
 const Index = () => {
   const { user, permissions, tenantId, tenantNome, isSuperAdmin, signOut } = useAuth();
@@ -27,7 +26,7 @@ const Index = () => {
     lancamentos, obras, profissionais, clientes, parceiros, comissoes, categorias,
     addLancamento, addMultipleLancamentos, addObra, addProfissional, addCliente,
     addParceiro, addComissao, updateCategorias,
-    deleteObra, deleteProfissional, deleteLancamento, deleteCliente,
+    deleteObra, deleteLancamento, deleteCliente,
     deleteParceiro, deleteComissao, updateComissaoStatus,
   } = useAppStore(tenantId);
 
@@ -36,6 +35,8 @@ const Index = () => {
   const [activeSection, setActiveSection] = useState('lancamento');
   const [filtroCliente, setFiltroCliente] = useState('');
   const [filtroTipoContrato, setFiltroTipoContrato] = useState('');
+  const [clientesAberto, setClientesAberto] = useState(false);
+  const [obrasAberto, setObrasAberto] = useState(false);
 
   const sectionRefs = {
     lancamento: useRef<HTMLDivElement>(null),
@@ -73,7 +74,6 @@ const Index = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Filtered obras based on client and contract type
   const obrasFiltradas = obras.filter(o => {
     if (filtroCliente && o.clienteId !== filtroCliente) return false;
     if (filtroTipoContrato && o.tipoContrato !== filtroTipoContrato) return false;
@@ -84,18 +84,16 @@ const Index = () => {
     ? lancamentos.filter(l => obrasFiltradas.some(o => o.id === l.obraId))
     : lancamentos;
 
+  const handleNovaCategoria = (nova: string) => {
+    if (!categorias.includes(nova)) updateCategorias([...categorias, nova]);
+  };
+
   const handleLogout = async () => { await signOut(); navigate('/login'); };
 
   const handleDeleteObra = async (id: string, nome: string) => {
     if (!confirm(`Excluir obra "${nome}"?`)) return;
     await deleteObra(id);
     toast({ title: 'Obra excluída', description: nome });
-  };
-
-  const handleDeleteProfissional = async (id: string, nome: string) => {
-    if (!confirm(`Excluir profissional "${nome}"?`)) return;
-    await deleteProfissional(id);
-    toast({ title: 'Profissional excluído', description: nome });
   };
 
   const handleDeleteLancamento = async (id: string) => {
@@ -110,11 +108,13 @@ const Index = () => {
     toast({ title: 'Cliente excluído', description: nome });
   };
 
+  const handlePrint = () => { window.print(); };
+
   const showFinancial = permissions.podeEditarOrcamento;
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-gradient-to-r from-[hsl(155,55%,12%)] via-[hsl(153,60%,18%)] to-[hsl(153,45%,25%)] shadow-lg">
+      <header className="bg-gradient-to-r from-[hsl(155,55%,12%)] via-[hsl(153,60%,18%)] to-[hsl(153,45%,25%)] shadow-lg print:hidden">
         <div className="container py-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -130,8 +130,20 @@ const Index = () => {
 
             <div className="flex gap-2 flex-wrap">
               {permissions.podeCriarObra && <CadastrarClienteModal onAdd={addCliente} />}
-              {permissions.podeCriarObra && <CadastrarObraModal onAdd={addObra} clientes={clientes} />}
-              {permissions.podeCadastrarProfissional && <CadastrarProfissionalModal onAdd={addProfissional} />}
+              {permissions.podeCriarObra && (
+                <CadastrarObraModal
+                  onAdd={addObra}
+                  clientes={clientes}
+                  onAddCliente={addCliente}
+                />
+              )}
+              {permissions.podeCadastrarProfissional && (
+                <CadastrarProfissionalModal
+                  onAdd={addProfissional}
+                  categoriasExtras={categorias}
+                  onNovaCategoria={handleNovaCategoria}
+                />
+              )}
               {permissions.podeGerenciarAcessos && (
                 <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => navigate('/gerenciar-acessos')}>
                   <Users className="w-4 h-4" /> Equipe
@@ -150,11 +162,12 @@ const Index = () => {
         </div>
       </header>
 
-      <NavAnchor active={activeSection} onNavigate={navigateTo} permissions={permissions} />
+      <div className="print:hidden">
+        <NavAnchor active={activeSection} onNavigate={navigateTo} permissions={permissions} />
+      </div>
 
-      {/* Filtros Inteligentes */}
       {(clientes.length > 0 || obras.length > 0) && (
-        <div className="container pt-4">
+        <div className="container pt-4 print:hidden">
           <div className="flex flex-wrap gap-2 items-center rounded-lg border border-border bg-card p-3">
             <Filter className="w-4 h-4 text-muted-foreground" />
             <span className="text-xs font-semibold text-muted-foreground uppercase">Filtros:</span>
@@ -179,7 +192,7 @@ const Index = () => {
         {permissions.podeLancarDespesa && (
           <section ref={sectionRefs.lancamento} className="pt-8">
             <SectionDivider title="Formulário de Lançamento" icon={FileText} />
-            <div className="mt-2 rounded-lg border border-border bg-card p-5">
+            <div className="mt-2 rounded-lg border border-border bg-card p-5 print:hidden">
               <FormularioLancamento
                 obras={obrasFiltradas}
                 profissionais={profissionais}
@@ -190,10 +203,13 @@ const Index = () => {
 
             {lancamentosFiltrados.length > 0 && (
               <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
-                <div className="px-4 py-3 bg-muted/30 border-b border-border">
+                <div className="px-4 py-3 bg-muted/30 border-b border-border flex justify-between items-center">
                   <span className="text-sm font-semibold">Últimos Lançamentos</span>
+                  <Button onClick={handlePrint} variant="ghost" size="sm" className="h-8 gap-1.5 text-xs print:hidden">
+                    <Printer className="w-3.5 h-3.5" /> Imprimir Relatório
+                  </Button>
                 </div>
-                <div className="divide-y divide-border max-h-64 overflow-y-auto">
+                <div className="divide-y divide-border max-h-64 overflow-y-auto print:max-h-none">
                   {lancamentosFiltrados.slice(-10).reverse().map(l => (
                     <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
                       <div className="flex-1 min-w-0">
@@ -203,7 +219,7 @@ const Index = () => {
                         <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
                       </div>
                       {permissions.podeGerenciarAcessos && (
-                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2">
+                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2 print:hidden">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -215,13 +231,22 @@ const Index = () => {
           </section>
         )}
 
-        {/* Clientes */}
+        {/* Clientes — colapsado por padrão */}
         {permissions.podeCriarObra && (
-          <section ref={sectionRefs.clientes} className="pt-4">
-            <SectionDivider title="Clientes" icon={Users2} />
-            {clientes.length > 0 ? (
-              <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
-                {clientes.map(c => (
+          <section ref={sectionRefs.clientes} className="pt-4 print:hidden">
+            <button
+              onClick={() => setClientesAberto(v => !v)}
+              className="w-full flex items-center justify-between group"
+            >
+              <SectionDivider title={`Clientes${clientes.length > 0 ? ` (${clientes.length})` : ''}`} icon={Users2} />
+              <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
+                {clientesAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </span>
+            </button>
+
+            {clientesAberto && (
+              <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border animate-in fade-in duration-200">
+                {clientes.length > 0 ? clientes.map(c => (
                   <div key={c.id} className="flex items-center justify-between px-4 py-3">
                     <div>
                       <span className="text-sm font-medium">{c.nome}</span>
@@ -235,61 +260,56 @@ const Index = () => {
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-2 rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-                Nenhum cliente cadastrado. Use o botão "Novo Cliente" acima.
+                )) : (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    Nenhum cliente cadastrado. Use o botão "Novo Cliente" acima.
+                  </div>
+                )}
               </div>
             )}
           </section>
         )}
 
-        {/* Obras */}
-        {permissions.podeCriarObra && obrasFiltradas.length > 0 && (
-          <section>
-            <SectionDivider title="Obras / Projetos" icon={PieChart} />
-            <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
-              {obrasFiltradas.map(o => (
-                <div key={o.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <span className="text-sm font-medium">{o.nome}</span>
-                    <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase">
-                      {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
-                    </span>
-                    {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Obras — colapsado por padrão */}
+        {permissions.podeCriarObra && (
+          <section className="print:hidden">
+            <button
+              onClick={() => setObrasAberto(v => !v)}
+              className="w-full flex items-center justify-between group"
+            >
+              <SectionDivider title={`Obras / Projetos${obrasFiltradas.length > 0 ? ` (${obrasFiltradas.length})` : ''}`} icon={PieChart} />
+              <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
+                {obrasAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </span>
+            </button>
 
-        {/* Profissionais */}
-        {permissions.podeCadastrarProfissional && profissionais.length > 0 && (
-          <section>
-            <SectionDivider title="Profissionais Cadastrados" icon={Tag} />
-            <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border">
-              {profissionais.map(p => (
-                <div key={p.id} className="flex items-center justify-between px-4 py-3">
-                  <div>
-                    <span className="text-sm font-medium">{p.nome}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{p.categoria}</span>
-                    {p.documento && <span className="text-xs text-muted-foreground ml-2">DOC: {p.documento}</span>}
-                    {p.chavePix && <span className="text-xs text-muted-foreground ml-2">PIX: {p.chavePix}</span>}
+            {obrasAberto && obrasFiltradas.length > 0 && (
+              <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border animate-in fade-in duration-200">
+                {obrasFiltradas.map(o => (
+                  <div key={o.id} className="flex items-center justify-between px-4 py-3">
+                    <div>
+                      <span className="text-sm font-medium">{o.nome}</span>
+                      <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase">
+                        {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
+                      </span>
+                      {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  <button onClick={() => handleDeleteProfissional(p.id, p.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
+
+            {obrasAberto && obrasFiltradas.length === 0 && (
+              <div className="mt-2 rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground animate-in fade-in duration-200">
+                Nenhuma obra cadastrada. Use o botão "Nova Obra" acima.
+              </div>
+            )}
           </section>
         )}
 
@@ -311,9 +331,8 @@ const Index = () => {
           </section>
         )}
 
-        {/* Comissões */}
         {permissions.podeGerenciarAcessos && (
-          <section ref={sectionRefs.comissoes}>
+          <section ref={sectionRefs.comissoes} className="print:hidden">
             <SectionDivider title="Comissões e Parceiros" icon={Percent} />
             <div className="mt-2">
               <GestaoComissoes
@@ -340,7 +359,7 @@ const Index = () => {
         )}
 
         {showFinancial && (
-          <section ref={sectionRefs.importar}>
+          <section ref={sectionRefs.importar} className="print:hidden">
             <SectionDivider title="Importar Dados" icon={Upload} />
             <div className="mt-2">
               <ImportarPlanilha
@@ -349,6 +368,8 @@ const Index = () => {
                 onImport={addMultipleLancamentos}
                 onAddProfissional={addProfissional}
                 onAddObra={addObra}
+                categoriasExtras={categorias}
+                onNovaCategoria={handleNovaCategoria}
               />
             </div>
           </section>

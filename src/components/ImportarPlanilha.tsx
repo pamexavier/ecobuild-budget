@@ -52,6 +52,8 @@ interface Props {
   onImport: (items: LancamentoInsert[]) => void;
   onAddProfissional: (p: Omit<Profissional, 'id'>) => void;
   onAddObra: (o: Omit<Obra, 'id' | 'gastoAtual'>) => void;
+  categoriasExtras?: string[];
+  onNovaCategoria?: (nova: string) => void;
 }
 
 interface ParsedRow {
@@ -66,7 +68,7 @@ interface ParsedRow {
   documentoExtraido: string | null;
 }
 
-export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissional, onAddObra }: Props) {
+export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissional, onAddObra, categoriasExtras = [], onNovaCategoria }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [step, setStep] = useState<'upload' | 'map' | 'preview'>('upload');
   const [mapping, setMapping] = useState<Record<string, string>>({ data: '', obraNome: '', profissional: '', valor: '' });
@@ -121,7 +123,6 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
       const matchedProf = findBestMatch(profRaw, profissionais, 'nome');
       const valorNum = Math.abs(parseFloat(valorRaw.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.'))) || 0;
 
-      // Extrai CPF/CNPJ de todas as colunas da linha
       const rowText = row.join(' ');
       const documentoExtraido = extractDocumento(rowText);
 
@@ -209,6 +210,8 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                           <CadastrarProfissionalModal
                             onAdd={onAddProfissional}
                             defaultValues={{ nome: r.profissionalOriginal, documento: r.documentoExtraido || undefined }}
+                            categoriasExtras={categoriasExtras}
+                            onNovaCategoria={onNovaCategoria}
                             trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ CADASTRAR NOVO</button>}
                           />
                         )}

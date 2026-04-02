@@ -4,7 +4,7 @@ import { LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import logo from '@/assets/logo-zentrax.png';
+import logo from '@/assets/logo.png';
 
 const Login = () => {
   const { signIn } = useAuth();
