@@ -297,13 +297,16 @@ const GerenciarAcessos = () => {
                   {u.permissions && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                       {PERMISSION_KEYS.map(key => (
-                        <label key={key} className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors">
-                          <span className="text-xs font-medium">{PERMISSION_LABELS[key]}</span>
-                          <Switch
-                            checked={u.permissions![key as keyof UserWithPermissions] as boolean}
-                            onCheckedChange={() => togglePermission(u.id, key, u.permissions![key as keyof UserWithPermissions] as boolean)}
-                          />
-                        </label>
+                        <div key={key} className="flex flex-col gap-1 rounded-md border border-border bg-muted/20 px-3 py-2">
+                          <label className="flex items-center justify-between gap-2 cursor-pointer hover:bg-muted/40 transition-colors rounded">
+                            <span className="text-xs font-medium">{PERMISSION_LABELS[key]}</span>
+                            <Switch
+                              checked={u.permissions![key as keyof UserWithPermissions] as boolean}
+                              onCheckedChange={() => togglePermission(u.id, key, u.permissions![key as keyof UserWithPermissions] as boolean)}
+                            />
+                          </label>
+                          <span className="text-[10px] text-muted-foreground">{PERMISSION_DESCRIPTIONS[key]}</span>
+                        </div>
                       ))}
                     </div>
                   )}
