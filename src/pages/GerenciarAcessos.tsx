@@ -26,11 +26,19 @@ interface CombinedUser {
 }
 
 const PERMISSION_LABELS: Record<string, string> = {
-  pode_criar_obra: 'Criar Obra',
-  pode_editar_orcamento: 'Editar Orçamento',
-  pode_lancar_despesa: 'Lançar Despesa',
-  pode_cadastrar_profissional: 'Cadastrar Profissional',
-  pode_gerenciar_acessos: 'Gerenciar Acessos',
+  pode_criar_obra: 'Criar Obra / Projeto',
+  pode_editar_orcamento: 'Ver Dashboard e Editar Orçamento',
+  pode_lancar_despesa: 'Lançar Diárias e Empreitadas',
+  pode_cadastrar_profissional: 'Cadastrar Profissionais',
+  pode_gerenciar_acessos: 'Gerenciar Equipe e Acessos (Admin)',
+};
+
+const PERMISSION_DESCRIPTIONS: Record<string, string> = {
+  pode_criar_obra: 'Pode cadastrar novas obras e clientes',
+  pode_editar_orcamento: 'Acessa dashboard financeiro completo',
+  pode_lancar_despesa: 'Acessa formulário de diárias e empreitadas',
+  pode_cadastrar_profissional: 'Pode adicionar profissionais ao sistema',
+  pode_gerenciar_acessos: 'Acessa esta tela e gerencia a equipe',
 };
 
 const PERMISSION_KEYS = Object.keys(PERMISSION_LABELS);
