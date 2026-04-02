@@ -24,7 +24,7 @@ export function NavAnchor({ active, onNavigate, permissions }: NavAnchorProps) {
     : allSections;
 
   return (
-    <nav className="sticky top-0 z-50 bg-card/90 backdrop-blur-md border-b border-border shadow-sm">
+    <nav className="sticky top-0 z-50 bg-card/90 backdrop-blur-md border-b border-border shadow-sm w-full">
       <div className="container flex overflow-x-auto">
         {sections.map((s) => {
           const Icon = s.icon;

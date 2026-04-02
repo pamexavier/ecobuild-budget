@@ -42,8 +42,12 @@ const Index = () => {
   const showFinancial = permissions.podeEditarOrcamento;
 
   useEffect(() => {
-    if (showFinancial) setActiveSection('dashboard');
-  }, [showFinancial]);
+    if (permissions.podeEditarOrcamento) {
+      setActiveSection('dashboard');
+    } else {
+      setActiveSection('lancamento');
+    }
+  }, [permissions.podeEditarOrcamento]);
 
   const navigateTo = (section: string) => {
     setActiveSection(section);
