@@ -42,8 +42,12 @@ const Index = () => {
   const showFinancial = permissions.podeEditarOrcamento;
 
   useEffect(() => {
-    if (showFinancial) setActiveSection('dashboard');
-  }, [showFinancial]);
+    if (permissions.podeEditarOrcamento) {
+      setActiveSection('dashboard');
+    } else {
+      setActiveSection('lancamento');
+    }
+  }, [permissions.podeEditarOrcamento]);
 
   const navigateTo = (section: string) => {
     setActiveSection(section);
@@ -91,7 +95,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="bg-gradient-to-r from-[hsl(155,55%,12%)] via-[hsl(153,60%,18%)] to-[hsl(153,45%,25%)] shadow-lg print:hidden">
+      <header className="bg-gradient-to-r from-[hsl(155,55%,12%)] via-[hsl(153,60%,18%)] to-[hsl(153,45%,25%)] shadow-lg print:hidden w-full">
         <div className="container py-5">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
