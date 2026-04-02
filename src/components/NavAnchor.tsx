@@ -1,4 +1,4 @@
-import { FileText, PieChart, BarChart3, Upload, Tag, TrendingUp, Users2, Percent } from 'lucide-react';
+import { FileText, PieChart, BarChart3, Upload, TrendingUp, Users2, Percent, LayoutDashboard } from 'lucide-react';
 import { UserPermissions } from '@/hooks/useAuth';
 
 interface NavAnchorProps {
@@ -8,6 +8,7 @@ interface NavAnchorProps {
 }
 
 const allSections = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
   { id: 'lancamento', label: 'Lançamento', icon: FileText, permKey: 'podeLancarDespesa' as keyof UserPermissions },
   { id: 'clientes', label: 'Clientes', icon: Users2, permKey: 'podeCriarObra' as keyof UserPermissions },
   { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },

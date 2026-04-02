@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, PieChart, BarChart3, Upload, LogOut, Trash2, Users, Building2, Users2, Filter, Percent, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import { NavAnchor } from '@/components/NavAnchor';
 import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
 import { DashboardOrcamento } from '@/components/DashboardOrcamento';
+import { DashboardGeral } from '@/components/DashboardGeral';
 import { ResumoSemana } from '@/components/ResumoSemana';
 import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
@@ -38,41 +39,15 @@ const Index = () => {
   const [clientesAberto, setClientesAberto] = useState(false);
   const [obrasAberto, setObrasAberto] = useState(false);
 
-  const sectionRefs = {
-    lancamento: useRef<HTMLDivElement>(null),
-    clientes: useRef<HTMLDivElement>(null),
-    orcamento: useRef<HTMLDivElement>(null),
-    relatoriosObra: useRef<HTMLDivElement>(null),
-    comissoes: useRef<HTMLDivElement>(null),
-    relatorios: useRef<HTMLDivElement>(null),
-    importar: useRef<HTMLDivElement>(null),
-  };
+  const showFinancial = permissions.podeEditarOrcamento;
+
+  useEffect(() => {
+    if (showFinancial) setActiveSection('dashboard');
+  }, [showFinancial]);
 
   const navigateTo = (section: string) => {
     setActiveSection(section);
-    sectionRefs[section as keyof typeof sectionRefs]?.current?.scrollIntoView({ behavior: 'smooth' });
   };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const id = entry.target.getAttribute('data-section');
-            if (id) setActiveSection(id);
-          }
-        });
-      },
-      { rootMargin: '-100px 0px -60% 0px' }
-    );
-    Object.entries(sectionRefs).forEach(([key, ref]) => {
-      if (ref.current) {
-        ref.current.setAttribute('data-section', key);
-        observer.observe(ref.current);
-      }
-    });
-    return () => observer.disconnect();
-  }, []);
 
   const obrasFiltradas = obras.filter(o => {
     if (filtroCliente && o.clienteId !== filtroCliente) return false;
@@ -110,7 +85,9 @@ const Index = () => {
 
   const handlePrint = () => { window.print(); };
 
-  const showFinancial = permissions.podeEditarOrcamento;
+  const hoje = new Date().toISOString().split('T')[0];
+  const lancamentosHoje = lancamentosFiltrados.filter(l => l.data === hoje);
+  const totalHoje = lancamentosHoje.reduce((s, l) => s + l.valor, 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -189,51 +166,100 @@ const Index = () => {
       )}
 
       <main className="container pb-24 space-y-10">
-        {permissions.podeLancarDespesa && (
-          <section ref={sectionRefs.lancamento} className="pt-8">
-            <SectionDivider title="Formulário de Lançamento" icon={FileText} />
-            <div className="mt-2 rounded-lg border border-border bg-card p-5 print:hidden">
-              <FormularioLancamento
-                obras={obrasFiltradas}
-                profissionais={profissionais}
-                onSubmit={addLancamento}
-                onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined}
-              />
-            </div>
-
-            {lancamentosFiltrados.length > 0 && (
-              <div className="mt-4 rounded-lg border border-border bg-card overflow-hidden">
-                <div className="px-4 py-3 bg-muted/30 border-b border-border flex justify-between items-center">
-                  <span className="text-sm font-semibold">Últimos Lançamentos</span>
-                  <Button onClick={handlePrint} variant="ghost" size="sm" className="h-8 gap-1.5 text-xs print:hidden">
-                    <Printer className="w-3.5 h-3.5" /> Imprimir Relatório
-                  </Button>
-                </div>
-                <div className="divide-y divide-border max-h-64 overflow-y-auto print:max-h-none">
-                  {lancamentosFiltrados.slice(-10).reverse().map(l => (
-                    <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                      <div className="flex-1 min-w-0">
-                        <span className="font-medium">{l.profissional || l.profissionalId}</span>
-                        <span className="text-muted-foreground"> · {l.obraNome} · </span>
-                        <span className="font-semibold text-primary">R$ {l.valor?.toFixed(2)}</span>
-                        <span className="text-muted-foreground text-xs ml-2">{l.data}</span>
-                      </div>
-                      {permissions.podeGerenciarAcessos && (
-                        <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2 print:hidden">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        {/* DASHBOARD GERAL */}
+        {activeSection === 'dashboard' && showFinancial && (
+          <section className="pt-8">
+            <DashboardGeral
+              obras={obrasFiltradas}
+              lancamentos={lancamentosFiltrados}
+              profissionais={profissionais}
+              comissoes={comissoes}
+            />
           </section>
         )}
 
-        {/* Clientes — colapsado por padrão */}
-        {permissions.podeCriarObra && (
-          <section ref={sectionRefs.clientes} className="pt-4 print:hidden">
+        {/* LANÇAMENTO — grid 2 colunas em desktop */}
+        {activeSection === 'lancamento' && permissions.podeLancarDespesa && (
+          <section className="pt-8">
+            <SectionDivider title="Formulário de Lançamento" icon={FileText} />
+            <div className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="rounded-lg border border-border bg-card p-5 print:hidden">
+                <FormularioLancamento
+                  obras={obrasFiltradas}
+                  profissionais={profissionais}
+                  onSubmit={addLancamento}
+                  onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined}
+                />
+              </div>
+
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                <div className="px-4 py-3 bg-muted/30 border-b border-border flex justify-between items-center">
+                  <span className="text-sm font-semibold">Lançamentos de Hoje</span>
+                  <span className="text-xs font-bold text-primary">Total: R$ {totalHoje.toFixed(2)}</span>
+                </div>
+                {lancamentosHoje.length > 0 ? (
+                  <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+                    {lancamentosHoje.reverse().map(l => (
+                      <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium">{l.profissional || l.profissionalId}</span>
+                          <span className="text-muted-foreground"> · {l.obraNome} · </span>
+                          <span className="font-semibold text-primary">R$ {l.valor?.toFixed(2)}</span>
+                          <span className={`ml-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            l.tipo === 'diaria' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-foreground'
+                          }`}>
+                            {l.tipo === 'diaria' ? 'Diária' : 'Empreitada'}
+                          </span>
+                        </div>
+                        {permissions.podeGerenciarAcessos && (
+                          <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2 print:hidden">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    Nenhum lançamento hoje
+                  </div>
+                )}
+                {/* All recent entries */}
+                {lancamentosFiltrados.length > 0 && (
+                  <>
+                    <div className="px-4 py-2 bg-muted/30 border-t border-border flex justify-between items-center">
+                      <span className="text-xs font-semibold text-muted-foreground">Últimos Lançamentos</span>
+                      <Button onClick={handlePrint} variant="ghost" size="sm" className="h-7 gap-1 text-[10px] print:hidden">
+                        <Printer className="w-3 h-3" /> Imprimir
+                      </Button>
+                    </div>
+                    <div className="divide-y divide-border max-h-48 overflow-y-auto">
+                      {lancamentosFiltrados.slice(-10).reverse().map(l => (
+                        <div key={l.id} className="flex items-center justify-between px-4 py-2 text-xs">
+                          <div className="flex-1 min-w-0">
+                            <span className="font-medium">{l.profissional || l.profissionalId}</span>
+                            <span className="text-muted-foreground"> · {l.obraNome} · </span>
+                            <span className="font-semibold text-primary">R$ {l.valor?.toFixed(2)}</span>
+                            <span className="text-muted-foreground ml-2">{l.data}</span>
+                          </div>
+                          {permissions.podeGerenciarAcessos && (
+                            <button onClick={() => handleDeleteLancamento(l.id)} className="p-1 text-muted-foreground hover:text-destructive transition-colors ml-2 print:hidden">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* CLIENTES */}
+        {activeSection === 'clientes' && permissions.podeCriarObra && (
+          <section className="pt-4 print:hidden">
             <button
               onClick={() => setClientesAberto(v => !v)}
               className="w-full flex items-center justify-between group"
@@ -267,54 +293,53 @@ const Index = () => {
                 )}
               </div>
             )}
-          </section>
-        )}
 
-        {/* Obras — colapsado por padrão */}
-        {permissions.podeCriarObra && (
-          <section className="print:hidden">
-            <button
-              onClick={() => setObrasAberto(v => !v)}
-              className="w-full flex items-center justify-between group"
-            >
-              <SectionDivider title={`Obras / Projetos${obrasFiltradas.length > 0 ? ` (${obrasFiltradas.length})` : ''}`} icon={PieChart} />
-              <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
-                {obrasAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-              </span>
-            </button>
+            {/* Obras section inline */}
+            <div className="mt-6">
+              <button
+                onClick={() => setObrasAberto(v => !v)}
+                className="w-full flex items-center justify-between group"
+              >
+                <SectionDivider title={`Obras / Projetos${obrasFiltradas.length > 0 ? ` (${obrasFiltradas.length})` : ''}`} icon={PieChart} />
+                <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
+                  {obrasAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </span>
+              </button>
 
-            {obrasAberto && obrasFiltradas.length > 0 && (
-              <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border animate-in fade-in duration-200">
-                {obrasFiltradas.map(o => (
-                  <div key={o.id} className="flex items-center justify-between px-4 py-3">
-                    <div>
-                      <span className="text-sm font-medium">{o.nome}</span>
-                      <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase">
-                        {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
-                      </span>
-                      {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              {obrasAberto && obrasFiltradas.length > 0 && (
+                <div className="mt-2 rounded-lg border border-border bg-card divide-y divide-border animate-in fade-in duration-200">
+                  {obrasFiltradas.map(o => (
+                    <div key={o.id} className="flex items-center justify-between px-4 py-3">
+                      <div>
+                        <span className="text-sm font-medium">{o.nome}</span>
+                        <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-semibold uppercase">
+                          {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
+                        </span>
+                        {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
                       </div>
+                      <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-1 text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
 
-            {obrasAberto && obrasFiltradas.length === 0 && (
-              <div className="mt-2 rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground animate-in fade-in duration-200">
-                Nenhuma obra cadastrada. Use o botão "Nova Obra" acima.
-              </div>
-            )}
+              {obrasAberto && obrasFiltradas.length === 0 && (
+                <div className="mt-2 rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground animate-in fade-in duration-200">
+                  Nenhuma obra cadastrada. Use o botão "Nova Obra" acima.
+                </div>
+              )}
+            </div>
           </section>
         )}
 
-        {showFinancial && (
-          <section ref={sectionRefs.orcamento}>
+        {/* ORÇAMENTO */}
+        {activeSection === 'orcamento' && showFinancial && (
+          <section className="pt-8">
             <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
             <div className="mt-2">
               <DashboardOrcamento obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
@@ -322,8 +347,9 @@ const Index = () => {
           </section>
         )}
 
-        {showFinancial && (
-          <section ref={sectionRefs.relatoriosObra}>
+        {/* RELATÓRIOS DE OBRA */}
+        {activeSection === 'relatoriosObra' && showFinancial && (
+          <section className="pt-8">
             <SectionDivider title="Relatórios de Obra" icon={BarChart3} />
             <div className="mt-2">
               <RelatoriosObra obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
@@ -331,8 +357,9 @@ const Index = () => {
           </section>
         )}
 
-        {permissions.podeGerenciarAcessos && (
-          <section ref={sectionRefs.comissoes} className="print:hidden">
+        {/* COMISSÕES */}
+        {activeSection === 'comissoes' && permissions.podeGerenciarAcessos && (
+          <section className="pt-8 print:hidden">
             <SectionDivider title="Comissões e Parceiros" icon={Percent} />
             <div className="mt-2">
               <GestaoComissoes
@@ -349,8 +376,9 @@ const Index = () => {
           </section>
         )}
 
-        {showFinancial && (
-          <section ref={sectionRefs.relatorios}>
+        {/* RESUMO DA SEMANA */}
+        {activeSection === 'relatorios' && showFinancial && (
+          <section className="pt-8">
             <SectionDivider title="Resumo da Semana" icon={BarChart3} />
             <div className="mt-2">
               <ResumoSemana lancamentos={lancamentosFiltrados} obras={obrasFiltradas} profissionais={profissionais} />
@@ -358,8 +386,9 @@ const Index = () => {
           </section>
         )}
 
-        {showFinancial && (
-          <section ref={sectionRefs.importar} className="print:hidden">
+        {/* IMPORTAR */}
+        {activeSection === 'importar' && showFinancial && (
+          <section className="pt-8 print:hidden">
             <SectionDivider title="Importar Dados" icon={Upload} />
             <div className="mt-2">
               <ImportarPlanilha

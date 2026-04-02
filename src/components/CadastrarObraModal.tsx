@@ -119,7 +119,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
                 <option value="">Sem cliente vinculado</option>
                 {clientes?.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.nome} {c.documento ? `(${c.documento})` : ''}
+                    {c.nome} {c.cpfCnpj ? `(${c.cpfCnpj})` : ''}
                   </option>
                 ))}
               </select>

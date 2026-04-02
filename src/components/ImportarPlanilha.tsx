@@ -231,6 +231,7 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                         {!r.obraIdSelecionada && (
                           <CadastrarObraModal
                             onAdd={onAddObra}
+                            onAddCliente={() => {}}
                             defaultNome={r.obraNomeOriginal}
                             trigger={<button className="text-[9px] text-primary font-bold hover:underline text-left">+ NOVA OBRA</button>}
                           />

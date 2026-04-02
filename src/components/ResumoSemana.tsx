@@ -195,11 +195,11 @@ export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
         </Popover>
 
         <div className="ml-auto flex gap-2">
-          {filtered.length > 0 && (
+          {groups.length > 0 && (
             <>
               <Button onClick={handleExportCSV} variant="outline" size="sm" className="gap-1.5">
                 <FileCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">Fechar Semana</span>
+                <span className="hidden sm:inline">Fechar Semana (CSV)</span>
               </Button>
               <Button onClick={handleExportPDF} variant="default" size="sm" className="gap-1.5">
                 <Download className="w-4 h-4" />
