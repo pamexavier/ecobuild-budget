@@ -42,7 +42,15 @@ export type Database = {
           razao_social?: string | null
           tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clientes_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       comissoes: {
         Row: {
@@ -105,6 +113,13 @@ export type Database = {
             referencedRelation: "parceiros"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "comissoes_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       lancamentos: {
@@ -114,6 +129,7 @@ export type Database = {
           id: string
           obra_id: string
           profissional_id: string
+          tenant_id: string
           tipo: string
           turnos: string[] | null
           valor: number
@@ -124,6 +140,7 @@ export type Database = {
           id?: string
           obra_id: string
           profissional_id: string
+          tenant_id: string
           tipo?: string
           turnos?: string[] | null
           valor?: number
@@ -134,6 +151,7 @@ export type Database = {
           id?: string
           obra_id?: string
           profissional_id?: string
+          tenant_id?: string
           tipo?: string
           turnos?: string[] | null
           valor?: number
@@ -153,6 +171,13 @@ export type Database = {
             referencedRelation: "profissionais"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lancamentos_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       obras: {
@@ -163,6 +188,7 @@ export type Database = {
           id: string
           nome: string
           orcamento_limite: number
+          tenant_id: string
           tipo_contrato: string
         }
         Insert: {
@@ -172,6 +198,7 @@ export type Database = {
           id?: string
           nome: string
           orcamento_limite?: number
+          tenant_id: string
           tipo_contrato?: string
         }
         Update: {
@@ -181,6 +208,7 @@ export type Database = {
           id?: string
           nome?: string
           orcamento_limite?: number
+          tenant_id?: string
           tipo_contrato?: string
         }
         Relationships: [
@@ -191,6 +219,13 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "obras_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       orcamentos_categoria: {
@@ -198,18 +233,21 @@ export type Database = {
           id: string
           nome: string
           obra_id: string
+          tenant_id: string
           valor_previsto: number
         }
         Insert: {
           id?: string
           nome: string
           obra_id: string
+          tenant_id: string
           valor_previsto?: number
         }
         Update: {
           id?: string
           nome?: string
           obra_id?: string
+          tenant_id?: string
           valor_previsto?: number
         }
         Relationships: [
@@ -218,6 +256,13 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orcamentos_categoria_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -250,7 +295,15 @@ export type Database = {
           nome?: string
           tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "parceiros_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profissionais: {
         Row: {
@@ -260,6 +313,7 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          tenant_id: string
         }
         Insert: {
           categoria: string
@@ -268,6 +322,7 @@ export type Database = {
           created_at?: string
           id?: string
           nome: string
+          tenant_id: string
         }
         Update: {
           categoria?: string
@@ -276,6 +331,42 @@ export type Database = {
           created_at?: string
           id?: string
           nome?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profissionais_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          documento: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          documento?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          documento?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -289,6 +380,7 @@ export type Database = {
           pode_gerenciar_acessos: boolean
           pode_lancar_despesa: boolean
           role: Database["public"]["Enums"]["app_role"]
+          tenant_id: string | null
           user_id: string
         }
         Insert: {
@@ -300,6 +392,7 @@ export type Database = {
           pode_gerenciar_acessos?: boolean
           pode_lancar_despesa?: boolean
           role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
           user_id: string
         }
         Update: {
@@ -311,9 +404,18 @@ export type Database = {
           pode_gerenciar_acessos?: boolean
           pode_lancar_despesa?: boolean
           role?: Database["public"]["Enums"]["app_role"]
+          tenant_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       weekly_reports: {
         Row: {
@@ -323,6 +425,7 @@ export type Database = {
           obra_id: string
           semana_fim: string
           semana_inicio: string
+          tenant_id: string
           total_acumulado: number
           total_mensal: number
           total_semanal: number
@@ -334,6 +437,7 @@ export type Database = {
           obra_id: string
           semana_fim: string
           semana_inicio: string
+          tenant_id: string
           total_acumulado?: number
           total_mensal?: number
           total_semanal?: number
@@ -345,6 +449,7 @@ export type Database = {
           obra_id?: string
           semana_fim?: string
           semana_inicio?: string
+          tenant_id?: string
           total_acumulado?: number
           total_mensal?: number
           total_semanal?: number
@@ -355,6 +460,13 @@ export type Database = {
             columns: ["obra_id"]
             isOneToOne: false
             referencedRelation: "obras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_reports_tenant_fk"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -368,11 +480,17 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      get_user_tenant: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_has_permission: {
+        Args: { _permission: string; _user_id: string }
         Returns: boolean
       }
     }
