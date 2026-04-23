@@ -121,7 +121,7 @@ export function useAppStore(tenantId: string | null) {
   // ── LANCAMENTOS ──────────────────────────────────────────────
   const addLancamento = useCallback(async (l: Omit<Lancamento, 'id'>) => {
     if (!tenantId) return;
-    await supabase.from('lancamentos').insert([{
+    const { error } = await supabase.from('lancamentos').insert([{
       tenant_id: tenantId,
       obra_id: l.obraId,
       profissional_id: l.profissionalId,
@@ -130,6 +130,7 @@ export function useAppStore(tenantId: string | null) {
       turnos: l.turnos,
       data: l.data,
     }]);
+    if (error) console.error('[addLancamento]', error);
     fetchData();
   }, [tenantId, fetchData]);
 
@@ -144,7 +145,10 @@ export function useAppStore(tenantId: string | null) {
       turnos: l.turnos,
       data: l.data,
     }));
-    if (rows.length > 0) await supabase.from('lancamentos').insert(rows);
+    if (rows.length > 0) {
+      const { error } = await supabase.from('lancamentos').insert(rows);
+      if (error) console.error('[addMultipleLancamentos]', error);
+    }
     fetchData();
   }, [tenantId, fetchData]);
 
@@ -157,7 +161,7 @@ export function useAppStore(tenantId: string | null) {
   // ── OBRAS ────────────────────────────────────────────────────
   const addObra = useCallback(async (o: Omit<Obra, 'id' | 'gastoAtual'>) => {
     if (!tenantId) return;
-    const { data: novaObra } = await supabase
+    const { data: novaObra, error } = await supabase
       .from('obras')
       .insert([{
         tenant_id: tenantId,
@@ -169,6 +173,8 @@ export function useAppStore(tenantId: string | null) {
       .select()
       .single();
 
+    if (error) console.error('[addObra]', error);
+
     if (novaObra && o.categorias) {
       const cats = o.categorias.map(cat => ({
         tenant_id: tenantId,
@@ -176,7 +182,8 @@ export function useAppStore(tenantId: string | null) {
         nome: cat.nome,
         valor_previsto: cat.valorPrevisto,
       }));
-      await supabase.from('orcamentos_categoria').insert(cats);
+      const { error: catError } = await supabase.from('orcamentos_categoria').insert(cats);
+      if (catError) console.error('[addObra/categorias]', catError);
     }
     fetchData();
   }, [tenantId, fetchData]);
@@ -201,13 +208,14 @@ export function useAppStore(tenantId: string | null) {
   // ── PROFISSIONAIS ─────────────────────────────────────────────
   const addProfissional = useCallback(async (p: Omit<Profissional, 'id'>) => {
     if (!tenantId) return;
-    await supabase.from('profissionais').insert([{
+    const { error } = await supabase.from('profissionais').insert([{
       tenant_id: tenantId,
       nome: p.nome,
       categoria: p.categoria,
       chave_pix: p.chavePix,
       cpf: p.documento,
     }]);
+    if (error) console.error('[addProfissional]', error);
     fetchData();
   }, [tenantId, fetchData]);
 

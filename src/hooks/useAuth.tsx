@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/store';
 
-export type AppRole = 'gestor' | 'supervisor' | 'encarregada';
+export type AppRole = 'gestor' | 'supervisor' | 'encarregada' | 'super_admin';
 
 export interface UserPermissions {
   podeCriarObra: boolean;
@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select(`
         role,
+        tenant_id,
         pode_criar_obra,
         pode_editar_orcamento,
         pode_lancar_despesa,
@@ -61,24 +62,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .limit(1)
       .maybeSingle();
 
-    if (data) {
-      setRole(data.role as AppRole);
-      setTenantId('default');
-      setIsSuperAdmin(false);
-      setTenantNome(null);
-      setPermissions({
-        podeCriarObra: data.pode_criar_obra ?? false,
-        podeEditarOrcamento: data.pode_editar_orcamento ?? false,
-        podeLancarDespesa: data.pode_lancar_despesa ?? false,
-        podeCadastrarProfissional: data.pode_cadastrar_profissional ?? false,
-        podeGerenciarAcessos: data.pode_gerenciar_acessos ?? false,
-      });
-    } else {
+    if (!data) {
       setRole(null);
       setTenantId(null);
       setTenantNome(null);
       setIsSuperAdmin(false);
       setPermissions(DEFAULT_PERMISSIONS);
+      return;
+    }
+
+    const isSA = data.role === 'super_admin';
+    setRole(data.role as AppRole);
+    setIsSuperAdmin(isSA);
+    setTenantId(data.tenant_id ?? null);
+    setPermissions({
+      podeCriarObra: data.pode_criar_obra ?? false,
+      podeEditarOrcamento: data.pode_editar_orcamento ?? false,
+      podeLancarDespesa: data.pode_lancar_despesa ?? false,
+      podeCadastrarProfissional: data.pode_cadastrar_profissional ?? false,
+      podeGerenciarAcessos: data.pode_gerenciar_acessos ?? false,
+    });
+
+    // Buscar nome do tenant (se tiver)
+    if (data.tenant_id) {
+      const { data: tenantData } = await supabase
+        .from('tenants')
+        .select('nome')
+        .eq('id', data.tenant_id)
+        .maybeSingle();
+      setTenantNome(tenantData?.nome ?? null);
+    } else {
+      setTenantNome(null);
     }
   };
 
