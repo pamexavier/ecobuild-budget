@@ -489,6 +489,14 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: { _user_id: string }; Returns: boolean }
+      super_admin_create_tenant: {
+        Args: {
+          p_gestor_user_id: string
+          p_tenant_documento?: string
+          p_tenant_nome: string
+        }
+        Returns: string
+      }
       user_has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean
