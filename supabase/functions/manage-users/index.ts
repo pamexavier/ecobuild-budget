@@ -44,14 +44,14 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Checar permissão: pode_gerenciar_acessos OU is_super_admin
+    // Checar permissão: pode_gerenciar_acessos OU role = 'super_admin'
     const { data: roleData } = await adminClient
       .from('user_roles')
-      .select('pode_gerenciar_acessos, is_super_admin')
+      .select('pode_gerenciar_acessos, role')
       .eq('user_id', user.id)
       .single()
 
-    const canManage = roleData?.pode_gerenciar_acessos || roleData?.is_super_admin
+    const canManage = roleData?.pode_gerenciar_acessos || roleData?.role === 'super_admin'
 
     if (!canManage) {
       return new Response(
