@@ -7,7 +7,7 @@ import { CadastrarClienteModal } from './CadastrarClienteModal';
 
 interface Props {
   onAdd: (o: Omit<Obra, 'id' | 'gastoAtual'>) => void;
-  onAddCliente: (c: Omit<Cliente, 'id'>) => void;
+  onAddCliente: (c: Omit<Cliente, 'id'>) => Promise<Cliente | null | void>;
   clientes?: Cliente[];
   trigger?: React.ReactNode;
   defaultNome?: string;
@@ -66,6 +66,16 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
     setOpen(false);
   };
 
+  const handleAddCliente = async (cliente: Omit<Cliente, 'id'>) => {
+    const createdCliente = await onAddCliente(cliente);
+
+    if (createdCliente?.id) {
+      setClienteId(createdCliente.id);
+    }
+
+    return createdCliente;
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -103,7 +113,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
               <div className="flex justify-between items-center mb-1">
                 <label className="text-xs font-black uppercase text-muted-foreground ml-1">Cliente</label>
                 <CadastrarClienteModal 
-                  onAdd={onAddCliente}
+                  onAdd={handleAddCliente}
                   trigger={
                     <button type="button" className="text-[10px] font-bold text-primary hover:underline uppercase flex items-center gap-1">
                       <UserPlus className="w-3 h-3" /> + Novo

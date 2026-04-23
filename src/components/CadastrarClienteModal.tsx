@@ -5,9 +5,11 @@ import { UserPlus, Plus } from 'lucide-react';
 import { Cliente } from '@/lib/types';
 
 interface Props {
-  onAdd: (c: Omit<Cliente, 'id'>) => void;
+  onAdd: (c: Omit<Cliente, 'id'>) => Promise<Cliente | null | void>;
   trigger?: React.ReactNode;
 }
+
+const sanitizeDocumento = (value: string) => value.replace(/\D/g, '');
 
 export function CadastrarClienteModal({ onAdd, trigger }: Props) {
   const [open, setOpen] = useState(false);
@@ -15,22 +17,56 @@ export function CadastrarClienteModal({ onAdd, trigger }: Props) {
   const [razaoSocial, setRazaoSocial] = useState('');
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [contato, setContato] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (isSubmitting) return;
     if (!nome) return;
-    onAdd({
-      nome,
-      razaoSocial: razaoSocial || undefined,
-      cpfCnpj: cpfCnpj || undefined,
-      contato: contato || undefined,
-    });
-    setNome(''); setRazaoSocial(''); setCpfCnpj(''); setContato('');
-    setOpen(false);
+
+    const payload = {
+      nome: nome.trim(),
+      razaoSocial: razaoSocial.trim() || undefined,
+      cpfCnpj: sanitizeDocumento(cpfCnpj) || undefined,
+      contato: contato.trim() || undefined,
+    };
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+
+    try {
+      console.log('[CadastrarClienteModal] iniciando cadastro de cliente', payload);
+      const createdCliente = await onAdd(payload);
+      console.log('[CadastrarClienteModal] retorno do cadastro de cliente', createdCliente);
+
+      if (createdCliente === null) {
+        setErrorMessage('Nao foi possivel cadastrar o cliente. Confira os logs do console.');
+        return;
+      }
+
+      setNome('');
+      setRazaoSocial('');
+      setCpfCnpj('');
+      setContato('');
+      setOpen(false);
+    } catch (error) {
+      console.error('[CadastrarClienteModal] erro ao cadastrar cliente', error);
+      setErrorMessage('Erro ao cadastrar cliente. Confira os logs do console.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (isSubmitting) return;
+    setOpen(nextOpen);
+    if (!nextOpen) setErrorMessage('');
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-1.5">
@@ -64,7 +100,14 @@ export function CadastrarClienteModal({ onAdd, trigger }: Props) {
             <label className="text-sm font-medium block mb-1.5">Contato (telefone/email)</label>
             <input type="text" value={contato} onChange={e => setContato(e.target.value)} placeholder="(11) 99999-0000" className="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-          <Button type="submit" className="w-full py-6 font-bold" disabled={!nome}>Cadastrar Cliente</Button>
+          {errorMessage && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          )}
+          <Button type="submit" className="w-full py-6 font-bold" disabled={!nome || isSubmitting}>
+            {isSubmitting ? 'Gravando...' : 'Cadastrar Cliente'}
+          </Button>
         </form>
       </DialogContent>
     </Dialog>

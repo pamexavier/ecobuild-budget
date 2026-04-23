@@ -4,6 +4,7 @@ import { Lancamento, LancamentoInsert, Obra, Profissional, Cliente, Parceiro, Co
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const sanitizeDocumento = (value?: string) => value?.replace(/\D/g, '') || undefined;
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -229,16 +230,51 @@ export function useAppStore(tenantId: string | null) {
 
   // ── CLIENTES ──────────────────────────────────────────────────
   const addCliente = useCallback(async (c: Omit<Cliente, 'id'>) => {
-    if (!tenantId) return;
-    await supabase.from('clientes').insert([{
+    if (!tenantId) {
+      console.error('[useAppStore.addCliente] tenantId ausente ao tentar cadastrar cliente');
+      return null;
+    }
+
+    const payload = {
       tenant_id: tenantId,
-      nome: c.nome,
-      razao_social: c.razaoSocial,
-      cpf_cnpj: c.cpfCnpj,
-      contato: c.contato,
-    }]);
-    fetchData();
-  }, [tenantId, fetchData]);
+      nome: c.nome.trim(),
+      razao_social: c.razaoSocial?.trim() || null,
+      cpf_cnpj: sanitizeDocumento(c.cpfCnpj) || null,
+      contato: c.contato?.trim() || null,
+    };
+
+    console.log('[useAppStore.addCliente] enviando insert para Supabase', payload);
+
+    const { data, error } = await supabase
+      .from('clientes')
+      .insert([payload])
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[useAppStore.addCliente] erro no Supabase ao cadastrar cliente', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        payload,
+      });
+      return null;
+    }
+
+    console.log('[useAppStore.addCliente] cliente criado no Supabase', data);
+
+    const clienteFormatado: Cliente = {
+      id: data.id,
+      nome: data.nome,
+      razaoSocial: data.razao_social || undefined,
+      cpfCnpj: data.cpf_cnpj || undefined,
+      contato: data.contato || undefined,
+    };
+
+    setClientes(prev => [...prev, clienteFormatado]);
+    return clienteFormatado;
+  }, [tenantId]);
 
   const deleteCliente = useCallback(async (id: string) => {
     if (!tenantId) return;
