@@ -69,7 +69,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
   const handleAddCliente = async (cliente: Omit<Cliente, 'id'>) => {
     const createdCliente = await onAddCliente(cliente);
 
-    if (createdCliente?.id) {
+    if (createdCliente && 'id' in createdCliente && createdCliente.id) {
       setClienteId(createdCliente.id);
     }
 

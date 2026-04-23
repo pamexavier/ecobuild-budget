@@ -51,25 +51,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select(`
         role,
-        tenant_id,
-        is_super_admin,
         pode_criar_obra,
         pode_editar_orcamento,
         pode_lancar_despesa,
         pode_cadastrar_profissional,
-        pode_gerenciar_acessos,
-        tenants ( id, nome )
+        pode_gerenciar_acessos
       `)
       .eq('user_id', userId)
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setRole(data.role as AppRole);
-      setTenantId(data.tenant_id ?? null);
-      setIsSuperAdmin(data.is_super_admin ?? false);
-      // @ts-ignore
-      setTenantNome(data.tenants?.nome ?? null);
+      setTenantId('default');
+      setIsSuperAdmin(false);
+      setTenantNome(null);
       setPermissions({
         podeCriarObra: data.pode_criar_obra ?? false,
         podeEditarOrcamento: data.pode_editar_orcamento ?? false,
@@ -78,7 +74,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         podeGerenciarAcessos: data.pode_gerenciar_acessos ?? false,
       });
     } else {
-      // Usuário sem role ainda — aguarda super admin configurar
       setRole(null);
       setTenantId(null);
       setTenantNome(null);
