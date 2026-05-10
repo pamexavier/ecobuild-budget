@@ -1,13 +1,11 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Download, FileCheck, Copy, Check, CalendarIcon, Building2, User, Key } from 'lucide-react';
+import { CalendarIcon, Building2, User, Printer, Calculator } from 'lucide-react';
 import { Lancamento, Obra, Profissional } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   lancamentos: Lancamento[];
@@ -15,285 +13,215 @@ interface Props {
   profissionais: Profissional[];
 }
 
-interface ObraGroup {
-  obraId: string;
-  obraNome: string;
-  total: number;
-  profissionais: {
-    profissionalId: string;
-    nome: string;
-    chavePix?: string;
-    total: number;
-    lancamentos: Lancamento[];
-  }[];
-}
+type LancamentoResolvido = Lancamento & {
+  obraNomeResolvido: string;
+  profissionalResolvido: string;
+  categoriaResolvida: string;
+  servicoResolvido: string;
+};
 
-function generateCSVExport(groups: ObraGroup[]): string {
-  let csv = 'Obra;Profissional;Chave PIX;Categoria;Tipo;Valor;Data\n';
-  let grandTotal = 0;
-  groups.forEach(g => {
-    g.profissionais.forEach(p => {
-      p.lancamentos.forEach(l => {
-        csv += `${g.obraNome};${p.nome};${p.chavePix || 'N/A'};${l.categoriaOrcamentoNome};${l.tipo === 'diaria' ? 'Diária' : 'Empreitada'};${l.valor.toFixed(2)};${l.data}\n`;
-      });
-      csv += `;;SUBTOTAL ${p.nome};;;${p.total.toFixed(2)};\n`;
-    });
-    csv += `;TOTAL ${g.obraNome};;;;${g.total.toFixed(2)};\n\n`;
-    grandTotal += g.total;
-  });
-  csv += `TOTAL GERAL PIX;;;;;${grandTotal.toFixed(2)};\n`;
-  return csv;
-}
+type DiaAgrupado = {
+  totalDia: number;
+  lancamentos: LancamentoResolvido[];
+};
 
-function downloadFile(content: string, filename: string, type: string) {
-  const blob = new Blob([content], { type });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+type ObraAgrupada = {
+  id: string;
+  nome: string;
+  totalObra: number;
+  dias: Record<string, DiaAgrupado>;
+};
 
-function generatePDFContent(groups: ObraGroup[], dateLabel: string): string {
-  let html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumo Semanal - ZENTRA-X</title>
-<style>
-body{font-family:Arial,sans-serif;padding:40px;color:#1a2a1f}
-h1{color:#1a6b3c;font-size:22px;border-bottom:3px solid #1a6b3c;padding-bottom:8px}
-h2{color:#1a6b3c;font-size:16px;margin-top:24px;background:#e8f5e9;padding:8px 12px;border-radius:6px}
-h3{font-size:14px;margin:12px 0 4px;color:#2e7d52}
-table{width:100%;border-collapse:collapse;margin:8px 0 16px;font-size:13px}
-th{background:#1a6b3c;color:white;padding:8px 10px;text-align:left}
-td{padding:6px 10px;border-bottom:1px solid #ddd}
-.total-row{font-weight:bold;background:#f0faf3}
-.grand-total{font-size:18px;text-align:right;margin-top:20px;padding:12px;background:#1a6b3c;color:white;border-radius:8px}
-.pix{color:#666;font-size:12px}
-.header{display:flex;justify-content:space-between;align-items:center}
-.period{color:#666;font-size:14px}
-</style></head><body>
-<div class="header"><h1>ZENTRA-X — Resumo Semanal</h1></div>
-<p class="period">Período: ${dateLabel}</p>`;
+const moeda = (valor: number) =>
+  valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-  let grandTotal = 0;
-  groups.forEach(g => {
-    html += `<h2>🏗️ ${g.obraNome} — Total: R$ ${g.total.toFixed(2)}</h2>`;
-    g.profissionais.forEach(p => {
-      html += `<h3>👷 ${p.nome} ${p.chavePix ? `<span class="pix">PIX: ${p.chavePix}</span>` : ''}</h3>`;
-      html += `<table><thead><tr><th>Data</th><th>Categoria</th><th>Tipo</th><th style="text-align:right">Valor</th></tr></thead><tbody>`;
-      p.lancamentos.forEach(l => {
-        html += `<tr><td>${l.data}</td><td>${l.categoriaOrcamentoNome}</td><td>${l.tipo === 'diaria' ? 'Diária' : 'Empreitada'}</td><td style="text-align:right">R$ ${l.valor.toFixed(2)}</td></tr>`;
-      });
-      html += `<tr class="total-row"><td colspan="3">Subtotal ${p.nome}</td><td style="text-align:right">R$ ${p.total.toFixed(2)}</td></tr>`;
-      html += `</tbody></table>`;
-    });
-    grandTotal += g.total;
-  });
-
-  html += `<div class="grand-total">Total Geral PIX: R$ ${grandTotal.toFixed(2)}</div>`;
-  html += `<p style="text-align:center;margin-top:30px;color:#999;font-size:11px">ZENTRA-X · Gestão Inteligente · Gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm")}</p>`;
-  html += `</body></html>`;
-  return html;
-}
+const parseDataLocal = (data: string) => {
+  const [ano, mes, dia] = data.split('-').map(Number);
+  return new Date(ano, (mes || 1) - 1, dia || 1);
+};
 
 export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
-  const { toast } = useToast();
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(subDays(new Date(), 7));
+  const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
-  const now = new Date();
-  const defaultStart = subDays(now, 6);
-  const [dateFrom, setDateFrom] = useState<Date | undefined>(defaultStart);
-  const [dateTo, setDateTo] = useState<Date | undefined>(now);
+  const dados = useMemo(() => {
+    const obraPorId = new Map(obras.map(obra => [obra.id, obra]));
+    const profissionalPorId = new Map(profissionais.map(profissional => [profissional.id, profissional]));
 
-  const filtered = useMemo(() => {
-    if (!dateFrom || !dateTo) return lancamentos;
-    return lancamentos.filter(l => {
-      const d = new Date(l.data);
-      return isWithinInterval(d, { start: startOfDay(dateFrom), end: endOfDay(dateTo) });
-    });
-  }, [lancamentos, dateFrom, dateTo]);
+    const filtrados: LancamentoResolvido[] = lancamentos
+      .filter(lancamento => {
+        if (!dateFrom || !dateTo) return true;
+        return isWithinInterval(parseDataLocal(lancamento.data), {
+          start: startOfDay(dateFrom),
+          end: endOfDay(dateTo),
+        });
+      })
+      .map(lancamento => {
+        const obra = obraPorId.get(lancamento.obraId);
+        const profissional = profissionalPorId.get(lancamento.profissionalId);
+        const categoria = lancamento.categoriaOrcamentoNome || lancamento.categoria || profissional?.categoria || 'Geral';
 
-  const groups: ObraGroup[] = useMemo(() => {
-    const obraMap: Record<string, ObraGroup> = {};
-    filtered.forEach(l => {
-      if (!obraMap[l.obraId]) {
-        obraMap[l.obraId] = { obraId: l.obraId, obraNome: l.obraNome, total: 0, profissionais: [] };
-      }
-      const group = obraMap[l.obraId];
-      let prof = group.profissionais.find(p => p.profissionalId === l.profissionalId);
-      if (!prof) {
-        const profData = profissionais.find(p => p.id === l.profissionalId);
-        prof = {
-          profissionalId: l.profissionalId,
-          nome: l.profissional,
-          chavePix: profData?.chavePix,
-          total: 0,
-          lancamentos: [],
+        return {
+          ...lancamento,
+          obraNomeResolvido: lancamento.obraNome || obra?.nome || 'Obra nao informada',
+          profissionalResolvido: lancamento.profissional || profissional?.nome || 'Profissional nao informado',
+          categoriaResolvida: categoria,
+          servicoResolvido: lancamento.descricaoEtapa || (lancamento.turnos?.includes('[ADIANTAMENTO]') ? 'Adiantamento' : lancamento.tipo === 'diaria' ? 'Diaria' : 'Empreitada'),
         };
-        group.profissionais.push(prof);
+      });
+
+    const obrasAgrupadas: Record<string, ObraAgrupada> = {};
+    const totaisPorDia: Record<string, number> = {};
+
+    filtrados.forEach(lancamento => {
+      const obraId = lancamento.obraId || 'sem-obra';
+      const data = lancamento.data;
+
+      if (!obrasAgrupadas[obraId]) {
+        obrasAgrupadas[obraId] = {
+          id: obraId,
+          nome: lancamento.obraNomeResolvido,
+          totalObra: 0,
+          dias: {},
+        };
       }
-      prof.total += l.valor;
-      prof.lancamentos.push(l);
-      group.total += l.valor;
+
+      if (!obrasAgrupadas[obraId].dias[data]) {
+        obrasAgrupadas[obraId].dias[data] = { totalDia: 0, lancamentos: [] };
+      }
+
+      obrasAgrupadas[obraId].totalObra += lancamento.valor;
+      obrasAgrupadas[obraId].dias[data].totalDia += lancamento.valor;
+      obrasAgrupadas[obraId].dias[data].lancamentos.push(lancamento);
+      totaisPorDia[data] = (totaisPorDia[data] || 0) + lancamento.valor;
     });
-    return Object.values(obraMap).sort((a, b) => b.total - a.total);
-  }, [filtered, profissionais]);
 
-  const grandTotal = groups.reduce((s, g) => s + g.total, 0);
+    const obrasOrdenadas = Object.values(obrasAgrupadas).sort((a, b) => a.nome.localeCompare(b.nome));
+    const totalGeral = filtrados.reduce((total, lancamento) => total + lancamento.valor, 0);
 
-  const dateLabel = dateFrom && dateTo
-    ? `${format(dateFrom, 'dd/MM/yyyy')} a ${format(dateTo, 'dd/MM/yyyy')}`
-    : 'Período não definido';
-
-  const handleCopyPix = (profName: string, chavePix: string) => {
-    navigator.clipboard.writeText(chavePix);
-    setCopiedId(profName);
-    toast({ title: 'PIX copiado!', description: `Chave de ${profName} copiada.` });
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleExportCSV = () => {
-    const csv = generateCSVExport(groups);
-    downloadFile(csv, `resumo_semanal_${format(now, 'yyyy-MM-dd')}.csv`, 'text/csv;charset=utf-8;');
-  };
-
-  const handleExportPDF = () => {
-    const html = generatePDFContent(groups, dateLabel);
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      setTimeout(() => printWindow.print(), 500);
-    }
-  };
+    return { obras: obrasOrdenadas, totaisPorDia, totalGeral, totalLancamentos: filtrados.length };
+  }, [lancamentos, obras, profissionais, dateFrom, dateTo]);
 
   return (
-    <div className="space-y-4">
-      {/* Date filter */}
-      <div className="flex flex-wrap gap-2 items-center">
+    <div className="space-y-6" id="sessao-relatorio-fechamento">
+      <div className="flex flex-wrap gap-2 items-center print:hidden bg-card p-4 rounded-lg border">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className={cn("gap-2 text-sm", !dateFrom && "text-muted-foreground")}>
-              <CalendarIcon className="w-4 h-4" />
-              {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
+            <Button variant="outline" className="text-xs font-bold uppercase">
+              <CalendarIcon className="w-3.5 h-3.5 mr-2" /> De: {dateFrom ? format(dateFrom, 'dd/MM/yy') : 'Inicio'}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
-          </PopoverContent>
+          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={ptBR} /></PopoverContent>
         </Popover>
-        <span className="text-muted-foreground text-sm">até</span>
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className={cn("gap-2 text-sm", !dateTo && "text-muted-foreground")}>
-              <CalendarIcon className="w-4 h-4" />
-              {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
+            <Button variant="outline" className="text-xs font-bold uppercase">
+              <CalendarIcon className="w-3.5 h-3.5 mr-2" /> Ate: {dateTo ? format(dateTo, 'dd/MM/yy') : 'Fim'}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
-          </PopoverContent>
+          <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={ptBR} /></PopoverContent>
         </Popover>
-
-        <div className="ml-auto flex gap-2">
-          {groups.length > 0 && (
-            <>
-              <Button onClick={handleExportCSV} variant="outline" size="sm" className="gap-1.5">
-                <FileCheck className="w-4 h-4" />
-                <span className="hidden sm:inline">Fechar Semana (CSV)</span>
-              </Button>
-              <Button onClick={handleExportPDF} variant="default" size="sm" className="gap-1.5">
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Gerar PDF</span>
-              </Button>
-            </>
-          )}
-        </div>
+        <Button onClick={() => window.print()} className="ml-auto font-black uppercase text-xs">
+          <Printer className="w-4 h-4 mr-2" /> Imprimir fechamento
+        </Button>
       </div>
 
-      {/* Grand total */}
-      {groups.length > 0 && (
-        <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Download className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-primary">Total PIX do Período</span>
-          </div>
-          <span className="text-xl font-bold text-primary">R$ {grandTotal.toFixed(2)}</span>
-        </div>
-      )}
-
-      {/* Grouped by Obra */}
-      {groups.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
-          <p className="text-muted-foreground">Nenhum lançamento no período selecionado</p>
-        </div>
-      ) : (
-        groups.map(group => (
-          <div key={group.obraId} className="rounded-lg border border-border bg-card overflow-hidden">
-            {/* Obra header */}
-            <div className="bg-primary/10 px-4 py-3 flex items-center justify-between border-b border-primary/20">
-              <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-primary" />
-                <span className="font-semibold text-sm">{group.obraNome}</span>
-              </div>
-              <span className="font-bold text-primary text-sm">R$ {group.total.toFixed(2)}</span>
+      <div className="bg-white text-slate-950 rounded-lg border border-slate-200 shadow-sm overflow-hidden print:shadow-none print:border-slate-400">
+        <div className="px-6 py-5 border-b border-slate-200 bg-slate-50">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">ZENTRA-X</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight">Fechamento de Pagamentos</h2>
+              <p className="text-sm text-slate-600">
+                {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Inicio'} ate {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Fim'}
+              </p>
             </div>
+            <div className="text-left sm:text-right">
+              <p className="text-xs font-bold uppercase text-slate-500">Total geral</p>
+              <p className="text-3xl font-black text-emerald-700">{moeda(dados.totalGeral)}</p>
+              <p className="text-xs text-slate-500">{dados.totalLancamentos} pagamento(s)</p>
+            </div>
+          </div>
+        </div>
 
-            {/* Profissionais */}
-            <div className="divide-y divide-border">
-              {group.profissionais.sort((a, b) => b.total - a.total).map(prof => (
-                <div key={prof.profissionalId} className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-medium text-sm">{prof.nome}</span>
-                    </div>
-                    <span className="font-bold text-sm">R$ {prof.total.toFixed(2)}</span>
+        <div className="grid gap-0 border-b border-slate-200 md:grid-cols-2">
+          <div className="p-5 md:border-r border-slate-200">
+            <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase text-slate-700">
+              <Building2 className="w-4 h-4" /> Resumo geral das obras
+            </div>
+            <div className="space-y-2">
+              {dados.obras.length > 0 ? dados.obras.map(obra => (
+                <div key={obra.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+                  <span className="min-w-0 truncate text-sm font-semibold">{obra.nome}</span>
+                  <span className="text-sm font-black text-emerald-700">{moeda(obra.totalObra)}</span>
+                </div>
+              )) : (
+                <p className="text-sm text-slate-500">Nenhum pagamento no periodo.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="p-5">
+            <div className="mb-3 flex items-center gap-2 text-sm font-black uppercase text-slate-700">
+              <Calculator className="w-4 h-4" /> Resumo por dia
+            </div>
+            <div className="space-y-2">
+              {Object.entries(dados.totaisPorDia).sort(([a], [b]) => a.localeCompare(b)).map(([data, total]) => (
+                <div key={data} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2">
+                  <span className="text-sm font-semibold">{format(parseDataLocal(data), 'dd/MM/yyyy, EEEE', { locale: ptBR })}</span>
+                  <span className="text-sm font-black text-emerald-700">{moeda(total)}</span>
+                </div>
+              ))}
+              {Object.keys(dados.totaisPorDia).length === 0 && (
+                <p className="text-sm text-slate-500">Nenhum pagamento no periodo.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-5">
+          {dados.obras.map(obra => (
+            <section key={obra.id} className="overflow-hidden rounded-lg border border-slate-300 print:break-inside-avoid">
+              <div className="flex flex-col gap-1 bg-slate-900 px-4 py-3 text-white sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2 font-black uppercase tracking-wide">
+                  <Building2 className="w-4 h-4" /> {obra.nome}
+                </div>
+                <div className="text-sm font-black">Total da obra: {moeda(obra.totalObra)}</div>
+              </div>
+
+              {Object.entries(obra.dias).sort(([a], [b]) => a.localeCompare(b)).map(([data, info]) => (
+                <div key={data} className="border-t border-slate-200">
+                  <div className="flex flex-col gap-1 bg-slate-100 px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="text-xs font-black uppercase text-slate-600">
+                      {format(parseDataLocal(data), 'dd/MM/yyyy, EEEE', { locale: ptBR })}
+                    </span>
+                    <span className="text-xs font-black uppercase text-slate-700">Total do dia nesta obra: {moeda(info.totalDia)}</span>
                   </div>
 
-                  {/* Chave PIX */}
-                  {prof.chavePix && (
-                    <div className="flex items-center gap-2 bg-muted/50 rounded-md px-3 py-2">
-                      <Key className="w-3.5 h-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground font-mono flex-1 truncate">{prof.chavePix}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 gap-1 text-xs"
-                        onClick={() => handleCopyPix(prof.nome, prof.chavePix!)}
-                      >
-                        {copiedId === prof.nome ? (
-                          <><Check className="w-3 h-3 text-primary" /> Copiado</>
-                        ) : (
-                          <><Copy className="w-3 h-3" /> Copiar PIX</>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Lancamentos detail */}
                   <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
+                    <table className="w-full min-w-[760px] border-collapse text-left text-sm">
                       <thead>
-                        <tr className="text-muted-foreground">
-                          <th className="text-left py-1 pr-3 font-medium">Data</th>
-                          <th className="text-left py-1 pr-3 font-medium">Categoria</th>
-                          <th className="text-left py-1 pr-3 font-medium">Tipo</th>
-                          <th className="text-right py-1 font-medium">Valor</th>
+                        <tr className="border-y border-slate-200 bg-white text-[11px] uppercase text-slate-500">
+                          <th className="px-4 py-2 font-black">Prestador</th>
+                          <th className="px-4 py-2 font-black">Categoria</th>
+                          <th className="px-4 py-2 font-black">Obra</th>
+                          <th className="px-4 py-2 font-black">Pagamento</th>
+                          <th className="px-4 py-2 text-right font-black">Valor</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {prof.lancamentos.map(l => (
-                          <tr key={l.id} className="border-t border-border/50">
-                            <td className="py-1.5 pr-3">{l.data}</td>
-                            <td className="py-1.5 pr-3">{l.categoriaOrcamentoNome}</td>
-                            <td className="py-1.5 pr-3">
-                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                l.tipo === 'diaria' ? 'bg-primary/10 text-primary' : 'bg-accent/10 text-accent-foreground'
-                              }`}>
-                                {l.tipo === 'diaria' ? 'Diária' : 'Empreitada'}
-                              </span>
+                        {info.lancamentos.map(lancamento => (
+                          <tr key={lancamento.id} className="border-b border-slate-100 last:border-0">
+                            <td className="px-4 py-3 font-bold">
+                              <div className="flex items-center gap-2">
+                                <User className="w-3.5 h-3.5 text-emerald-700" />
+                                {lancamento.profissionalResolvido}
+                              </div>
                             </td>
-                            <td className="py-1.5 text-right font-medium">R$ {l.valor.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-slate-700">{lancamento.categoriaResolvida}</td>
+                            <td className="px-4 py-3 text-slate-700">{lancamento.obraNomeResolvido}</td>
+                            <td className="px-4 py-3 text-slate-600">{lancamento.servicoResolvido}</td>
+                            <td className="px-4 py-3 text-right font-black text-emerald-700">{moeda(lancamento.valor)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -301,10 +229,41 @@ export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        ))
-      )}
+            </section>
+          ))}
+        </div>
+      </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page { margin: 12mm; }
+          body * { visibility: hidden !important; }
+          #sessao-relatorio-fechamento, #sessao-relatorio-fechamento * { visibility: visible !important; }
+          #sessao-relatorio-fechamento {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+          }
+          #sessao-relatorio-fechamento {
+            color: #0f172a !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          #sessao-relatorio-fechamento .bg-slate-900 {
+            background: #0f172a !important;
+            color: white !important;
+          }
+          #sessao-relatorio-fechamento table {
+            page-break-inside: auto;
+          }
+          #sessao-relatorio-fechamento tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+          }
+        }
+      `}} />
     </div>
   );
 }

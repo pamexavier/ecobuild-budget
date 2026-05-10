@@ -58,6 +58,7 @@ interface Props {
 
 interface ParsedRow {
   id: number;
+  selecionada: boolean; // ← novo
   data: string;
   dataFormatada: string;
   obraNomeOriginal: string;
@@ -67,6 +68,10 @@ interface ParsedRow {
   valorNum: number;
   documentoExtraido: string | null;
 }
+
+// Classe base reutilizável para os selects do mapeamento e preview
+const selectBase =
+  'bg-card text-foreground border border-input rounded-lg text-xs p-1 focus:outline-none focus:ring-2 focus:ring-ring';
 
 export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissional, onAddObra, categoriasExtras = [], onNovaCategoria }: Props) {
   const [rows, setRows] = useState<ParsedRow[]>([]);
@@ -128,6 +133,7 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
 
       return {
         id: index,
+        selecionada: true, // ← todas marcadas por padrão
         data: dataRaw,
         dataFormatada: dataRaw.includes('/') ? dataRaw.split('/').reverse().join('-') : dataRaw,
         obraNomeOriginal: obraRaw,
@@ -141,6 +147,16 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
     setRows(parsed);
     setStep('preview');
   };
+
+  // helpers para checkboxes
+  const toggleRow = (i: number) =>
+    setRows(prev => prev.map((r, idx) => idx === i ? { ...r, selecionada: !r.selecionada } : r));
+
+  const toggleAll = (val: boolean) =>
+    setRows(prev => prev.map(r => ({ ...r, selecionada: val })));
+
+  const selecionadas = rows.filter(r => r.selecionada);
+  const todasMarcadas = rows.length > 0 && selecionadas.length === rows.length;
 
   if (step === 'upload') {
     return (
@@ -170,9 +186,14 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
           {['data', 'obraNome', 'profissional', 'valor'].map(field => (
             <div key={field} className="flex items-center gap-4">
               <label className="text-[10px] font-bold w-24 uppercase text-muted-foreground">{field}</label>
-              <select value={mapping[field]} onChange={e => setMapping(p => ({ ...p, [field]: e.target.value }))} className={`flex-1 p-2 text-xs border rounded-lg bg-background ${mapping[field] ? 'border-primary/50 bg-primary/5' : 'border-dashed'}`}>
-                <option value="">-- Selecionar Coluna --</option>
-                {headers.map((h, i) => <option key={i} value={String(i)}>{h}</option>)}
+              {/* ↓ FIX: classes explícitas para o tema escuro */}
+              <select
+                value={mapping[field]}
+                onChange={e => setMapping(p => ({ ...p, [field]: e.target.value }))}
+                className={`flex-1 p-2 text-xs rounded-lg bg-card text-foreground border focus:outline-none focus:ring-2 focus:ring-ring ${mapping[field] ? 'border-primary/50' : 'border-dashed border-input'}`}
+              >
+                <option value="" className="bg-card text-foreground">-- Selecionar Coluna --</option>
+                {headers.map((h, i) => <option key={i} value={String(i)} className="bg-card text-foreground">{h}</option>)}
               </select>
             </div>
           ))}
@@ -180,10 +201,32 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Contador e ação em massa */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+            <span>
+              <span className="font-bold text-foreground">{selecionadas.length}</span> de {rows.length} selecionados para importar
+            </span>
+            <button
+              onClick={() => toggleAll(!todasMarcadas)}
+              className="text-primary font-bold hover:underline"
+            >
+              {todasMarcadas ? 'Desmarcar todos' : 'Marcar todos'}
+            </button>
+          </div>
+
           <div className="max-h-96 overflow-auto border rounded-lg">
             <table className="w-full text-[11px]">
               <thead className="bg-muted sticky top-0 z-10">
                 <tr>
+                  {/* Checkbox coluna header */}
+                  <th className="p-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={todasMarcadas}
+                      onChange={e => toggleAll(e.target.checked)}
+                      className="accent-primary w-3.5 h-3.5 cursor-pointer"
+                    />
+                  </th>
                   <th className="p-3 text-left">Profissional</th>
                   <th className="p-3 text-left">Obra / Destino</th>
                   <th className="p-3 text-right">Valor</th>
@@ -191,7 +234,19 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
               </thead>
               <tbody className="divide-y">
                 {rows.map((r, i) => (
-                  <tr key={i} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={i}
+                    className={`transition-colors ${r.selecionada ? 'hover:bg-muted/30' : 'opacity-40 bg-muted/10 line-through-none'}`}
+                  >
+                    {/* Checkbox por linha */}
+                    <td className="p-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={r.selecionada}
+                        onChange={() => toggleRow(i)}
+                        className="accent-primary w-3.5 h-3.5 cursor-pointer"
+                      />
+                    </td>
                     <td className="p-3">
                       <div className="flex flex-col gap-1">
                         <span className="font-bold text-muted-foreground uppercase text-[9px]">{r.profissionalOriginal}</span>
@@ -201,10 +256,10 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                         <select
                           value={r.profissionalIdSelecionada}
                           onChange={e => { const n = [...rows]; n[i].profissionalIdSelecionada = e.target.value; setRows(n); }}
-                          className={`p-1 border rounded-md text-[10px] ${!r.profissionalIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
+                          className={`${selectBase} ${!r.profissionalIdSelecionada ? 'border-amber-500' : 'border-green-500/30'}`}
                         >
-                          <option value="">Vincular Profissional...</option>
-                          {profissionais?.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                          <option value="" className="bg-card text-foreground">Vincular Profissional...</option>
+                          {profissionais?.map(p => <option key={p.id} value={p.id} className="bg-card text-foreground">{p.nome}</option>)}
                         </select>
                         {!r.profissionalIdSelecionada && (
                           <CadastrarProfissionalModal
@@ -223,10 +278,10 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
                         <select
                           value={r.obraIdSelecionada}
                           onChange={e => { const n = [...rows]; n[i].obraIdSelecionada = e.target.value; setRows(n); }}
-                          className={`p-1 border rounded-md text-[10px] ${!r.obraIdSelecionada ? 'border-amber-500 bg-amber-50' : 'border-green-500/30 bg-green-50/30'}`}
+                          className={`${selectBase} ${!r.obraIdSelecionada ? 'border-amber-500' : 'border-green-500/30'}`}
                         >
-                          <option value="">Vincular Obra...</option>
-                          {obras?.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                          <option value="" className="bg-card text-foreground">Vincular Obra...</option>
+                          {obras?.map(o => <option key={o.id} value={o.id} className="bg-card text-foreground">{o.nome}</option>)}
                         </select>
                         {!r.obraIdSelecionada && (
                           <CadastrarObraModal
@@ -244,9 +299,10 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
               </tbody>
             </table>
           </div>
+
           <Button
-            disabled={rows.some(r => !r.obraIdSelecionada || !r.profissionalIdSelecionada)}
-            onClick={() => onImport(rows.map(r => ({
+            disabled={selecionadas.length === 0 || selecionadas.some(r => !r.obraIdSelecionada || !r.profissionalIdSelecionada)}
+            onClick={() => onImport(selecionadas.map(r => ({
               obraId: r.obraIdSelecionada,
               profissionalId: r.profissionalIdSelecionada,
               valor: r.valorNum,
@@ -256,7 +312,7 @@ export function ImportarPlanilha({ obras, profissionais, onImport, onAddProfissi
             })))}
             className="w-full py-6 font-black uppercase"
           >
-            Finalizar Importação ({rows.length})
+            Finalizar Importação ({selecionadas.length})
           </Button>
         </div>
       )}

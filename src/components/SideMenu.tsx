@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import {
-  PieChart, BarChart3, Upload, TrendingUp, Percent,
+  PieChart, BarChart3, Upload, TrendingUp, Percent, WalletCards,
   Users, Building2, LogOut, Shield
 } from 'lucide-react';
 import {
@@ -28,6 +28,7 @@ const menuSections = [
       { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
       { id: 'relatoriosObra', label: 'Relatórios de Obra', icon: TrendingUp, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
       { id: 'relatorios', label: 'Resumo Semanal', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+      { id: 'contasReceber', label: 'Contas a Receber', icon: WalletCards, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
       { id: 'comissoes', label: 'Comissões', icon: Percent, permKey: 'podeGerenciarAcessos' as keyof UserPermissions },
     ]
   },

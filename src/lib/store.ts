@@ -29,18 +29,36 @@ export function useAppStore(tenantId: string | null) {
     const [obrasRes, profsRes, lancsRes, clientesRes, parceirosRes, comissoesRes] = await Promise.all([
       supabase.from('obras').select('*, orcamentos_categoria(*), clientes(nome)').eq('tenant_id', tenantId),
       supabase.from('profissionais').select('*').eq('tenant_id', tenantId),
-      supabase.from('lancamentos').select('*, obras(nome)').eq('tenant_id', tenantId),
+      supabase.from('lancamentos').select('*, obras(nome), profissionais(nome, categoria)').eq('tenant_id', tenantId),
       supabase.from('clientes').select('*').eq('tenant_id', tenantId),
       supabase.from('parceiros').select('*').eq('tenant_id', tenantId),
       supabase.from('comissoes').select('*, parceiros(nome), obras(nome)').eq('tenant_id', tenantId),
     ]);
+
+    const lancamentosFormatados: Lancamento[] = (lancsRes.data || []).map((item: any) => ({
+      ...item,
+      valor: Number(item.valor) || 0,
+      obraId: item.obra_id,
+      profissionalId: item.profissional_id,
+      obraNome: item.obras?.nome,
+      profissional: item.profissionais?.nome,
+      categoria: item.profissionais?.categoria,
+      categoriaOrcamentoId: item.categoria_orcamento_id || '',
+      categoriaOrcamentoNome: item.categoria_orcamento_nome || item.profissionais?.categoria || 'Geral',
+      descricaoEtapa: item.descricao_etapa || undefined,
+    }));
+
+    const gastoPorObra = lancamentosFormatados.reduce((acc, lancamento) => {
+      acc[lancamento.obraId] = (acc[lancamento.obraId] || 0) + lancamento.valor;
+      return acc;
+    }, {} as Record<string, number>);
 
     if (obrasRes.data) {
       setObras(obrasRes.data.map((obra: any) => ({
         id: obra.id,
         nome: obra.nome,
         orcamentoLimite: obra.orcamento_limite,
-        gastoAtual: obra.gasto_atual,
+        gastoAtual: gastoPorObra[obra.id] ?? (Number(obra.gasto_atual) || 0),
         clienteId: obra.cliente_id,
         clienteNome: obra.clientes?.nome,
         tipoContrato: obra.tipo_contrato || 'obra',
@@ -62,14 +80,7 @@ export function useAppStore(tenantId: string | null) {
       })));
     }
 
-    if (lancsRes.data) {
-      setLancamentos(lancsRes.data.map((item: any) => ({
-        ...item,
-        obraId: item.obra_id,
-        profissionalId: item.profissional_id,
-        obraNome: item.obras?.nome,
-      })));
-    }
+    setLancamentos(lancamentosFormatados);
 
     if (clientesRes.data) {
       setClientes(clientesRes.data.map((c: any) => ({

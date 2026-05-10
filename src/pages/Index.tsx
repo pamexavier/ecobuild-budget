@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, PieChart, BarChart3, Upload, Trash2, Users2, Filter, Percent, Printer, ChevronDown, ChevronRight, Zap, Building2, HardHat, Plus } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
@@ -15,12 +15,23 @@ import { CadastrarClienteModal } from '@/components/CadastrarClienteModal';
 import { RelatoriosObra } from '@/components/RelatoriosObra';
 import { GestaoComissoes } from '@/components/GestaoComissoes';
 import { AdiantamentoModal } from '@/components/AdiantamentoModal';
+import { FiltrosDashboard } from '@/components/FiltrosDashboard';
+import { CardDashboardContas, CardResumoFinanceiro, GerenciadorContas } from '@/components/SistemaContasAReceber';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
+import { ContaAReceber, TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
 import logo from '@/assets/logo.png';
+
+const formatarNome = (nome: string) => {
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 const Index = () => {
   const { user, permissions, tenantId, tenantNome, isSuperAdmin, signOut } = useAuth();
@@ -38,12 +49,46 @@ const Index = () => {
   const [activeSection, setActiveSection] = useState('lancamento');
   const [menuOpen, setMenuOpen] = useState(false);
   const [adiantamentoOpen, setAdiantamentoOpen] = useState(false);
-  const [filtroCliente, setFiltroCliente] = useState('');
-  const [filtroTipoContrato, setFiltroTipoContrato] = useState('');
+  const [contas, setContas] = useState<ContaAReceber[]>([]);
+  const [contasCarregadas, setContasCarregadas] = useState(false);
+  const [obraContaInicialId, setObraContaInicialId] = useState<string | null>(null);
+  // Filtros do dashboard
+  const [filtros, setFiltros] = useState({
+    clienteId: null,
+    empreendimentoId: null,
+    tipo: null,
+    tipoEmpreendimento: 'ambos',
+  });
   const [clientesAberto, setClientesAberto] = useState(false);
   const [obrasAberto, setObrasAberto] = useState(false);
 
   const showFinancial = permissions.podeEditarOrcamento;
+
+  useEffect(() => {
+    const key = `contas-a-receber:${tenantId || 'local'}`;
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved).map((conta: any) => ({
+          ...conta,
+          dataVencimento: new Date(conta.dataVencimento),
+          dataPagamento: conta.dataPagamento ? new Date(conta.dataPagamento) : undefined,
+        }));
+        setContas(parsed);
+      } catch {
+        setContas([]);
+      }
+    } else {
+      setContas([]);
+    }
+    setContasCarregadas(true);
+  }, [tenantId]);
+
+  useEffect(() => {
+    if (!contasCarregadas) return;
+    const key = `contas-a-receber:${tenantId || 'local'}`;
+    localStorage.setItem(key, JSON.stringify(contas));
+  }, [contas, contasCarregadas, tenantId]);
 
   useEffect(() => {
     if (permissions.podeEditarOrcamento) {
@@ -57,15 +102,48 @@ const Index = () => {
     setActiveSection(section);
   };
 
+  const handleAdicionarConta = (conta: ContaAReceber) => {
+    setContas(prev => [...prev, conta]);
+  };
+
+  const handleAtualizarConta = (contaAtualizada: ContaAReceber) => {
+    setContas(prev => prev.map(c => c.id === contaAtualizada.id ? contaAtualizada : c));
+  };
+
+  const handleDeletarConta = (contaId: string) => {
+    setContas(prev => prev.filter(c => c.id !== contaId));
+  };
+
+
+  // Aplica filtros de obras/projetos
   const obrasFiltradas = obras.filter(o => {
-    if (filtroCliente && o.clienteId !== filtroCliente) return false;
-    if (filtroTipoContrato && o.tipoContrato !== filtroTipoContrato) return false;
+    if (filtros.clienteId && o.clienteId !== filtros.clienteId) return false;
+    if (filtros.tipoEmpreendimento === 'projeto') return false;
+    if (filtros.empreendimentoId && o.id !== filtros.empreendimentoId) return false;
     return true;
   });
-
-  const lancamentosFiltrados = filtroCliente || filtroTipoContrato
-    ? lancamentos.filter(l => obrasFiltradas.some(o => o.id === l.obraId))
-    : lancamentos;
+  const projetosFiltrados = (typeof projetos !== 'undefined' ? projetos : []).filter(p => {
+    if (filtros.clienteId && p.clienteId !== filtros.clienteId) return false;
+    if (filtros.tipoEmpreendimento === 'obra') return false;
+    if (filtros.empreendimentoId && p.id !== filtros.empreendimentoId) return false;
+    return true;
+  });
+  const lancamentosFiltrados = lancamentos.filter(l => {
+    if (filtros.tipo && l.tipo !== filtros.tipo) return false;
+    if (filtros.empreendimentoId) {
+      return (
+        obrasFiltradas.some(o => o.id === l.obraId) ||
+        projetosFiltrados.some(p => p.id === l.projetoId)
+      );
+    }
+    if (filtros.clienteId) {
+      return (
+        obrasFiltradas.some(o => o.id === l.obraId) ||
+        projetosFiltrados.some(p => p.id === l.projetoId)
+      );
+    }
+    return true;
+  });
 
   const handleNovaCategoria = (nova: string) => {
     if (!categorias.includes(nova)) updateCategorias([...categorias, nova]);
@@ -96,6 +174,31 @@ const Index = () => {
   const hoje = new Date().toISOString().split('T')[0];
   const lancamentosHoje = lancamentosFiltrados.filter(l => l.data === hoje);
   const totalHoje = lancamentosHoje.reduce((s, l) => s + l.valor, 0);
+  const nomeProfissional = (id: string, nome?: string) =>
+    nome || profissionais.find(p => p.id === id)?.nome || 'Profissional nao informado';
+  const categoriaProfissional = (id: string, categoria?: string) =>
+    categoria || profissionais.find(p => p.id === id)?.categoria || 'Sem categoria';
+  const pixProfissional = (id: string) =>
+    profissionais.find(p => p.id === id)?.chavePix || 'Nao informado';
+  const nomeObra = (id: string, nome?: string) =>
+    nome || obras.find(o => o.id === id)?.nome || 'Obra nao informada';
+  const clientesOrdenados = useMemo(() => {
+    return [...clientes]
+      .map(cliente => ({ ...cliente, nome: formatarNome(cliente.nome || '') }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [clientes]);
+  const descricaoPagamento = (tipo: string, turnos?: string[], descricaoEtapa?: string) => {
+    if (descricaoEtapa) return descricaoEtapa;
+    if (turnos?.includes('[ADIANTAMENTO]')) return 'Adiantamento';
+    return tipo === 'diaria' ? 'Diaria' : 'Empreitada';
+  };
+  const resumoObrasHoje = useMemo(() => {
+    return lancamentosHoje.reduce((acc, lancamento) => {
+      const obra = nomeObra(lancamento.obraId, lancamento.obraNome);
+      acc[obra] = (acc[obra] || 0) + lancamento.valor;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [lancamentosHoje, obras]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -127,25 +230,18 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Filters bar */}
-      {(clientes.length > 0 || obras.length > 0) && (
-        <div className="px-4 pt-3 print:hidden">
-          <div className="flex flex-wrap gap-2 items-center glass rounded-2xl p-3">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            {clientes.length > 0 && (
-              <select value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-2.5 text-xs">
-                <option value="">Todos os clientes</option>
-                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-              </select>
-            )}
-            <select value={filtroTipoContrato} onChange={e => setFiltroTipoContrato(e.target.value)} className="rounded-xl border border-input bg-background px-3 py-2.5 text-xs">
-              <option value="">Todos os tipos</option>
-              {Object.entries(TIPO_CONTRATO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-            {(filtroCliente || filtroTipoContrato) && (
-              <button onClick={() => { setFiltroCliente(''); setFiltroTipoContrato(''); }} className="text-xs text-primary font-semibold hover:underline">Limpar</button>
-            )}
-          </div>
+
+      {/* Filters bar removida, agora só FiltrosDashboard controla os filtros */}
+
+      {/* Filtros Dashboard */}
+      {activeSection !== 'lancamento' && (
+        <div className="px-4 pt-4 pb-2 print:hidden">
+          <FiltrosDashboard
+            clientes={clientes}
+            obras={obras}
+            projetos={typeof projetos !== 'undefined' ? projetos : []}
+            onFilterChange={setFiltros}
+          />
         </div>
       )}
 
@@ -160,14 +256,19 @@ const Index = () => {
               profissionais={profissionais}
               comissoes={comissoes}
             />
+            <div className="mt-6">
+              <CardDashboardContas contas={contas} obras={obrasFiltradas} />
+            </div>
           </section>
         )}
 
         {/* LANÇAMENTO */}
         {activeSection === 'lancamento' && permissions.podeLancarDespesa && (
           <section className="pt-4">
-            <SectionDivider title="Lançamento" icon={FileText} />
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="print:hidden">
+              <SectionDivider title="Lançamento" icon={FileText} />
+            </div>
+            <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
               <div className="glass rounded-2xl p-4 sm:p-5">
                 <FormularioLancamento
                   obras={obrasFiltradas}
@@ -187,8 +288,10 @@ const Index = () => {
                     {[...lancamentosHoje].reverse().map(l => (
                       <div key={l.id} className="flex items-center justify-between px-4 py-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{l.profissional || l.profissionalId}</p>
-                          <p className="text-xs text-muted-foreground truncate">{l.obraNome}</p>
+                          <p className="text-sm font-semibold truncate">{nomeProfissional(l.profissionalId, l.profissional)}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {categoriaProfissional(l.profissionalId, l.categoria)} · {nomeObra(l.obraId, l.obraNome)}
+                          </p>
                         </div>
                         <div className="flex items-center gap-2 ml-2">
                           <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${
@@ -227,8 +330,8 @@ const Index = () => {
                       {lancamentosFiltrados.slice(-10).reverse().map(l => (
                         <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
                           <div className="flex-1 min-w-0">
-                            <span className="font-medium">{l.profissional || l.profissionalId}</span>
-                            <span className="text-muted-foreground"> · {l.obraNome}</span>
+                            <span className="font-medium">{nomeProfissional(l.profissionalId, l.profissional)}</span>
+                            <span className="text-muted-foreground"> · {categoriaProfissional(l.profissionalId, l.categoria)} · {nomeObra(l.obraId, l.obraNome)}</span>
                           </div>
                           <span className="font-bold text-primary ml-2">R$ {l.valor?.toFixed(2)}</span>
                         </div>
@@ -238,6 +341,178 @@ const Index = () => {
                 )}
               </div>
             </div>
+
+            <div id="relatorio-pagamentos-dia" className="hidden print:block">
+              <div className="relatorio-pagamentos">
+                <div className="relatorio-cabecalho">
+                  <div>
+                    <p className="relatorio-marca">ZENTRA-X</p>
+                    <h1>Relatorio de Pagamentos</h1>
+                    <p>Data: {new Date(`${hoje}T00:00:00`).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <div className="relatorio-total">
+                    <span>Total do dia</span>
+                    <strong>R$ {totalHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                  </div>
+                </div>
+
+                <section className="relatorio-bloco">
+                  <h2>Resumo por obra</h2>
+                  <div className="relatorio-resumo-grid">
+                    {Object.entries(resumoObrasHoje).map(([obra, total]) => (
+                      <div key={obra} className="relatorio-resumo-item">
+                        <span>{obra}</span>
+                        <strong>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                    ))}
+                    {Object.keys(resumoObrasHoje).length === 0 && (
+                      <p className="relatorio-vazio">Nenhum pagamento registrado hoje.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="relatorio-bloco">
+                  <h2>Pagamentos</h2>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Prestador</th>
+                        <th>PIX</th>
+                        <th>Categoria</th>
+                        <th>Obra</th>
+                        <th>Pagamento</th>
+                        <th className="texto-direita">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...lancamentosHoje].reverse().map(l => (
+                        <tr key={l.id}>
+                          <td>{nomeProfissional(l.profissionalId, l.profissional)}</td>
+                          <td>{pixProfissional(l.profissionalId)}</td>
+                          <td>{categoriaProfissional(l.profissionalId, l.categoria)}</td>
+                          <td>{nomeObra(l.obraId, l.obraNome)}</td>
+                          <td>{descricaoPagamento(l.tipo, l.turnos, l.descricaoEtapa)}</td>
+                          <td className="texto-direita valor">R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </section>
+              </div>
+            </div>
+
+            <style dangerouslySetInnerHTML={{ __html: `
+              @media print {
+                @page { margin: 12mm; }
+                body * { visibility: hidden !important; }
+                #relatorio-pagamentos-dia, #relatorio-pagamentos-dia * { visibility: visible !important; }
+                #relatorio-pagamentos-dia {
+                  display: block !important;
+                  position: absolute !important;
+                  inset: 0 auto auto 0 !important;
+                  width: 100% !important;
+                  color: #0f172a !important;
+                  font-family: Arial, sans-serif !important;
+                }
+                .relatorio-pagamentos { width: 100%; }
+                .relatorio-cabecalho {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: flex-end;
+                  border-bottom: 3px solid #15803d;
+                  padding-bottom: 14px;
+                  margin-bottom: 18px;
+                }
+                .relatorio-marca {
+                  margin: 0 0 4px;
+                  color: #15803d;
+                  font-size: 10px;
+                  font-weight: 900;
+                  letter-spacing: 0.22em;
+                }
+                .relatorio-cabecalho h1 {
+                  margin: 0;
+                  font-size: 24px;
+                  text-transform: uppercase;
+                  font-weight: 900;
+                }
+                .relatorio-cabecalho p {
+                  margin: 4px 0 0;
+                  font-size: 12px;
+                  color: #475569;
+                }
+                .relatorio-total { text-align: right; }
+                .relatorio-total span {
+                  display: block;
+                  color: #475569;
+                  font-size: 11px;
+                  font-weight: 800;
+                  text-transform: uppercase;
+                }
+                .relatorio-total strong {
+                  color: #15803d;
+                  font-size: 24px;
+                  font-weight: 900;
+                }
+                .relatorio-bloco {
+                  margin-top: 16px;
+                  break-inside: avoid;
+                }
+                .relatorio-bloco h2 {
+                  margin: 0 0 8px;
+                  color: #15803d;
+                  font-size: 13px;
+                  text-transform: uppercase;
+                  font-weight: 900;
+                }
+                .relatorio-resumo-grid {
+                  display: grid;
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 8px;
+                }
+                .relatorio-resumo-item {
+                  display: flex;
+                  justify-content: space-between;
+                  gap: 12px;
+                  border: 1px solid #cbd5e1;
+                  border-radius: 6px;
+                  padding: 8px 10px;
+                  font-size: 12px;
+                }
+                .relatorio-resumo-item strong,
+                .valor {
+                  color: #15803d;
+                  font-weight: 900;
+                }
+                .relatorio-vazio {
+                  margin: 0;
+                  color: #64748b;
+                  font-size: 12px;
+                }
+                table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  font-size: 11px;
+                }
+                th {
+                  background: #0f172a !important;
+                  color: white !important;
+                  padding: 8px;
+                  text-align: left;
+                  text-transform: uppercase;
+                  font-size: 9px;
+                  letter-spacing: 0.04em;
+                  -webkit-print-color-adjust: exact;
+                  print-color-adjust: exact;
+                }
+                td {
+                  border-bottom: 1px solid #e2e8f0;
+                  padding: 8px;
+                  vertical-align: top;
+                }
+                .texto-direita { text-align: right; }
+              }
+            `}} />
 
             {/* FAB - Novo Adiantamento */}
             <button
@@ -265,7 +540,7 @@ const Index = () => {
 
             {clientesAberto && (
               <div className="glass rounded-2xl divide-y divide-white/[0.04] animate-in fade-in duration-200">
-                {clientes.length > 0 ? clientes.map(c => (
+                {clientesOrdenados.length > 0 ? clientesOrdenados.map(c => (
                   <div key={c.id} className="flex items-center justify-between px-4 py-4">
                     <div>
                       <span className="text-sm font-semibold">{c.nome}</span>
@@ -298,20 +573,30 @@ const Index = () => {
             {obrasAberto && (
               <div className="glass rounded-2xl divide-y divide-white/[0.04] animate-in fade-in duration-200">
                 {obrasFiltradas.length > 0 ? obrasFiltradas.map(o => (
-                  <div key={o.id} className="flex items-center justify-between px-4 py-4">
-                    <div>
-                      <span className="text-sm font-semibold">{o.nome}</span>
-                      <span className="text-[10px] ml-2 px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold uppercase">
-                        {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
-                      </span>
-                      {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <div key={o.id} className="px-4 py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-sm font-semibold">{o.nome}</span>
+                        <span className="text-[10px] ml-2 px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold uppercase">
+                          {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
+                        </span>
+                        {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </div>
                       </div>
+                      <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-xl">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-xl">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <CardResumoFinanceiro
+                      obraId={o.id}
+                      contas={contas}
+                      onAdicionarConta={() => {
+                        setObraContaInicialId(o.id);
+                        setActiveSection('contasReceber');
+                      }}
+                    />
                   </div>
                 )) : (
                   <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma obra cadastrada</div>
@@ -355,6 +640,24 @@ const Index = () => {
                 onUpdateStatus={updateComissaoStatus}
                 onDeleteComissao={deleteComissao}
                 onDeleteParceiro={deleteParceiro}
+              />
+            </div>
+          </section>
+        )}
+
+        {/* CONTAS A RECEBER */}
+        {activeSection === 'contasReceber' && showFinancial && (
+          <section className="pt-4 print:hidden">
+            <SectionDivider title="Contas a Receber" icon={Percent} />
+            <div className="mt-3">
+              <GerenciadorContas
+                contas={contas}
+                obras={obrasFiltradas}
+                onAdicionarConta={handleAdicionarConta}
+                onAtualizarConta={handleAtualizarConta}
+                onDeletarConta={handleDeletarConta}
+                obraInicialId={obraContaInicialId}
+                onObraInicialConsumida={() => setObraContaInicialId(null)}
               />
             </div>
           </section>

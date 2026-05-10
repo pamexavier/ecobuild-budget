@@ -10,6 +10,14 @@ interface Props {
 }
 
 const sanitizeDocumento = (value: string) => value.replace(/\D/g, '');
+const formatarNome = (nome: string) => {
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export function CadastrarClienteModal({ onAdd, trigger }: Props) {
   const [open, setOpen] = useState(false);
@@ -27,8 +35,8 @@ export function CadastrarClienteModal({ onAdd, trigger }: Props) {
     if (!nome) return;
 
     const payload = {
-      nome: nome.trim(),
-      razaoSocial: razaoSocial.trim() || undefined,
+      nome: formatarNome(nome),
+      razaoSocial: razaoSocial.trim() ? formatarNome(razaoSocial) : undefined,
       cpfCnpj: sanitizeDocumento(cpfCnpj) || undefined,
       contato: contato.trim() || undefined,
     };

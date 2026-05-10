@@ -1,8 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Obra, Lancamento, Profissional } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Building2, Users, DollarSign, TrendingUp, AlertTriangle } from 'lucide-react';
+import { GraficoDetalheObra } from './GraficoDetalheObra';
 
 interface Props {
   obras: Obra[];
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export function Dashboard({ obras, lancamentos, profissionais }: Props) {
+  const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
+
   const stats = useMemo(() => {
     const totalGasto = lancamentos.reduce((acc, l) => acc + l.valor, 0);
     const totalOrcado = obras.reduce((acc, o) => acc + o.orcamentoLimite, 0);
@@ -76,7 +79,12 @@ export function Dashboard({ obras, lancamentos, profissionais }: Props) {
               const barColor = perc > 90 ? "bg-destructive" : perc > 70 ? "bg-amber-500" : "bg-primary";
 
               return (
-                <div key={obra.id} className="space-y-2">
+                <button
+                  key={obra.id}
+                  type="button"
+                  onClick={() => setObraSelecionada(obra)}
+                  className="w-full space-y-2 rounded-xl p-2 text-left transition-all hover:bg-white/5"
+                >
                   <div className="flex justify-between text-xs font-bold">
                     <span>{obra.nome}</span>
                     <span className={perc > 90 ? "text-destructive" : ""}>{perc.toFixed(1)}%</span>
@@ -84,7 +92,7 @@ export function Dashboard({ obras, lancamentos, profissionais }: Props) {
                   <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden">
                     <div className={`h-full transition-all ${barColor}`} style={{ width: `${Math.min(perc, 100)}%` }} />
                   </div>
-                </div>
+                </button>
               );
             })}
           </CardContent>
@@ -106,6 +114,14 @@ export function Dashboard({ obras, lancamentos, profissionais }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {obraSelecionada && (
+        <GraficoDetalheObra
+          obra={obraSelecionada}
+          lancamentos={lancamentos}
+          onClose={() => setObraSelecionada(null)}
+        />
+      )}
     </div>
   );
 }

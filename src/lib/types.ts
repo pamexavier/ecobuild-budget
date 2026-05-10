@@ -54,10 +54,10 @@ export interface Lancamento {
   tipo: TipoLancamento;
   turnos: string[];
   valor: number;
-  valorDiaria?: number;
   descricaoEtapa?: string;
   data: string;
-  fotoUrl?: string;
+  fornecedor?: string;        // NOVO
+  comprovanteUrl?: string;    // NOVO
 }
 
 /** Tipo simplificado para inserções em massa (importação) */
@@ -92,6 +92,17 @@ export interface Comissao {
   dataPagamento?: string;
   obraId?: string;
   obraNome?: string;
+}
+
+export interface ContaAReceber {
+  id: string;
+  obraId: string;
+  descricao: string;
+  valor: number;
+  dataVencimento: Date;
+  status: 'aberto' | 'pago' | 'atrasado';
+  dataPagamento?: Date;
+  observacoes?: string;
 }
 
 export type Turno = 'Manhã' | 'Tarde' | 'Noite';

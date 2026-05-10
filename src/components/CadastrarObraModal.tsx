@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { HardHat, Plus, Trash2, Layers, UserPlus } from 'lucide-react';
@@ -12,6 +12,15 @@ interface Props {
   trigger?: React.ReactNode;
   defaultNome?: string;
 }
+
+const formatarNome = (nome: string) => {
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, defaultNome }: Props) {
   const [open, setOpen] = useState(false);
@@ -27,6 +36,11 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
   }, [defaultNome]);
 
   const totalOrcamento = categorias.reduce((sum, c) => sum + c.valorPrevisto, 0);
+  const clientesOrdenados = useMemo(() => {
+    return [...(clientes || [])]
+      .map(cliente => ({ ...cliente, nome: formatarNome(cliente.nome || '') }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [clientes]);
 
   const addCategoria = () => {
     if (!novaCategoria || !novoValor) return;
@@ -127,7 +141,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
                 className="w-full rounded-xl border border-input bg-background px-3 py-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all appearance-none cursor-pointer"
               >
                 <option value="">Sem cliente vinculado</option>
-                {clientes?.map(c => (
+                {clientesOrdenados.map(c => (
                   <option key={c.id} value={c.id}>
                     {c.nome} {c.cpfCnpj ? `(${c.cpfCnpj})` : ''}
                   </option>

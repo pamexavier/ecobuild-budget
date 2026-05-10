@@ -23,7 +23,15 @@ const queryClient = new QueryClient();
 function TenantGate({ children }: { children: React.ReactNode }) {
   const { user, tenantId, isSuperAdmin, loading } = useAuth();
 
-  if (loading) return null;
+  // Só mostra SemTenant se loading for false E já tentou buscar tenantId
+  if (loading || (user && tenantId === null && !isSuperAdmin)) {
+    // Mostra um spinner enquanto carrega, para evitar flicker
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
+      </div>
+    );
+  }
   if (user && !tenantId && !isSuperAdmin) return <SemTenant />;
   return <>{children}</>;
 }

@@ -19,6 +19,14 @@ interface Props {
 const TIPOS_PIX = ['CPF/CNPJ', 'E-mail', 'Telefone', 'Chave Aleatória'];
 
 const BASE_CATEGORIAS = [...CATEGORIAS];
+const formatarNome = (nome: string) => {
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, categoriasExtras = [], onNovaCategoria }: Props) {
   const [open, setOpen] = useState(false);
@@ -48,8 +56,9 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
   const confirmarNovaCategoria = () => {
     const trimmed = novaCategoria.trim();
     if (!trimmed) return;
-    onNovaCategoria?.(trimmed);
-    setCategoria(trimmed);
+    const categoriaFormatada = formatarNome(trimmed);
+    onNovaCategoria?.(categoriaFormatada);
+    setCategoria(categoriaFormatada);
     setNovaCategoria('');
     setAdicionandoCategoria(false);
   };
@@ -58,8 +67,8 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
     e.preventDefault();
     if (!nome || !categoria) return;
     onAdd({
-      nome,
-      categoria,
+      nome: formatarNome(nome),
+      categoria: formatarNome(categoria),
       documento: documento || undefined,
       tipoChavePix: tipoChavePix || undefined,
       chavePix: chavePix || undefined,

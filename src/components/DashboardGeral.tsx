@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { format, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { HardHat, Users, TrendingUp, Percent } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Obra, Lancamento, Profissional, Comissao } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { GraficoDetalheObra } from './GraficoDetalheObra';
 
 interface Props {
   obras: Obra[];
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }: Props) {
+  const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
   const now = new Date();
   const mesInicio = startOfMonth(now);
   const mesFim = endOfMonth(now);
@@ -34,15 +36,23 @@ export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }:
   }, [comissoes]);
 
   const gastoPorObra = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, { obraId: string; name: string; value: number }> = {};
     lancamentos.forEach(l => {
-      map[l.obraNome] = (map[l.obraNome] || 0) + l.valor;
+      const obra = obras.find(o => o.id === l.obraId);
+      const name = l.obraNome || obra?.nome || 'Obra sem nome';
+      if (!map[l.obraId]) map[l.obraId] = { obraId: l.obraId, name, value: 0 };
+      map[l.obraId].value += l.valor;
     });
-    return Object.entries(map)
-      .map(([name, value]) => ({ name: name.length > 20 ? name.slice(0, 20) + '…' : name, value }))
+    return Object.values(map)
+      .map(item => ({ ...item, name: item.name.length > 20 ? item.name.slice(0, 20) + '…' : item.name }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [lancamentos]);
+  }, [lancamentos, obras]);
+
+  const abrirDetalheObra = (obraId?: string) => {
+    const obra = obras.find(o => o.id === obraId);
+    if (obra) setObraSelecionada(obra);
+  };
 
   const ultimos10 = useMemo(() => {
     return [...lancamentos].sort((a, b) => b.data.localeCompare(a.data)).slice(0, 10);
@@ -90,8 +100,25 @@ export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }:
                 <BarChart data={gastoPorObra} layout="vertical" margin={{ left: 10, right: 20 }}>
                   <XAxis type="number" tickFormatter={v => `R$${(v / 1000).toFixed(0)}k`} className="text-[10px]" />
                   <YAxis type="category" dataKey="name" width={100} className="text-[10px]" />
-                  <Tooltip formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                  <Tooltip
+                    formatter={(v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                    contentStyle={{
+                      backgroundColor: '#0c0c0c',
+                      border: '1px solid rgba(16, 185, 129, 0.28)',
+                      borderRadius: 12,
+                      color: '#fff',
+                      boxShadow: '0 18px 45px rgba(0,0,0,0.45)',
+                    }}
+                    labelStyle={{ color: '#d1fae5', fontWeight: 800 }}
+                    itemStyle={{ color: '#fff', fontWeight: 700 }}
+                    cursor={{ fill: 'rgba(16, 185, 129, 0.08)' }}
+                  />
+                  <Bar
+                    dataKey="value"
+                    radius={[0, 4, 4, 0]}
+                    className="cursor-pointer"
+                    onClick={data => abrirDetalheObra(data?.obraId)}
+                  >
                     {gastoPorObra.map((_, i) => (
                       <Cell key={i} fill={`hsl(153, 60%, ${28 + i * 5}%)`} />
                     ))}
@@ -114,7 +141,12 @@ export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }:
               const pct = o.orcamentoLimite > 0 ? (o.gastoAtual / o.orcamentoLimite) * 100 : 0;
               const color = pct > 90 ? 'bg-destructive' : pct > 70 ? 'bg-yellow-500' : 'bg-primary';
               return (
-                <div key={o.id} className="space-y-1">
+                <button
+                  key={o.id}
+                  type="button"
+                  onClick={() => setObraSelecionada(o)}
+                  className="w-full space-y-1 rounded-xl p-2 text-left transition-all hover:bg-white/5"
+                >
                   <div className="flex justify-between text-xs">
                     <span className="font-medium truncate max-w-[60%]">{o.nome}</span>
                     <span className="text-muted-foreground">
@@ -124,7 +156,7 @@ export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }:
                   <div className="h-2 rounded-full bg-muted overflow-hidden">
                     <div className={`h-full rounded-full ${color} transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
                   </div>
-                </div>
+                </button>
               );
             })}
             {obras.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma obra</p>}
@@ -171,6 +203,14 @@ export function DashboardGeral({ obras, lancamentos, profissionais, comissoes }:
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {obraSelecionada && (
+        <GraficoDetalheObra
+          obra={obraSelecionada}
+          lancamentos={lancamentos}
+          onClose={() => setObraSelecionada(null)}
+        />
       )}
     </div>
   );

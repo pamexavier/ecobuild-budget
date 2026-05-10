@@ -1,142 +1,205 @@
-import { useMemo } from 'react';
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval, subDays, format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { TrendingUp, Calendar, DollarSign, BarChart3 } from 'lucide-react';
-import { Obra, Lancamento } from '@/lib/types';
+import { useState, useRef } from 'react';
+import { ChevronDown, ChevronUp, Printer, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
-interface Props {
-  obras: Obra[];
-  lancamentos: Lancamento[];
-}
+// MUDAMOS O NOME DA FUNÇÃO PARA BATER COM O SEU INDEX.TSX
+export function RelatoriosObra({ lancamentos = [] }) {
+  const [expandedObras, setExpandedObras] = useState({});
+  const relatorioRef = useRef(null);
 
-interface ObraReport {
-  obraId: string;
-  obraNome: string;
-  gastoSemanal: number;
-  gastoMensal: number;
-  gastoTotal: number;
-}
+  // Agrupar lançamentos por obra
+  const lancamentosAgrupados = lancamentos.reduce((acc, lcto) => {
+    const obraNome = lcto.obraNome || 'Sem Obra';
+    if (!acc[obraNome]) {
+      acc[obraNome] = [];
+    }
+    acc[obraNome].push(lcto);
+    return acc;
+  }, {});
 
-export function RelatoriosObra({ obras, lancamentos }: Props) {
-  const reports: ObraReport[] = useMemo(() => {
-    const now = new Date();
-    
-    // Semana fecha na sexta-feira
-    const friday = endOfWeek(now, { weekStartsOn: 6 }); // Saturday start = Friday end
-    const saturday = startOfWeek(now, { weekStartsOn: 6 });
-    
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+  // Calcular totais
+  const calcularTotalObra = (items) => {
+    return items.reduce((sum, item) => sum + (item.valor || 0), 0);
+  };
 
-    return obras.map(obra => {
-      const obraLanc = lancamentos.filter(l => l.obraId === obra.id);
+  const totalGeral = Object.values(lancamentosAgrupados).flat().reduce((sum, lcto) => sum + (lcto.valor || 0), 0);
 
-      const gastoSemanal = obraLanc
-        .filter(l => {
-          const d = new Date(l.data);
-          return isWithinInterval(d, { start: saturday, end: friday });
-        })
-        .reduce((sum, l) => sum + l.valor, 0);
+  // Toggle expansão de obra
+  const toggleObra = (obraNome) => {
+    setExpandedObras(prev => ({
+      ...prev,
+      [obraNome]: !prev[obraNome]
+    }));
+  };
 
-      const gastoMensal = obraLanc
-        .filter(l => {
-          const d = new Date(l.data);
-          return isWithinInterval(d, { start: monthStart, end: monthEnd });
-        })
-        .reduce((sum, l) => sum + l.valor, 0);
+  // Imprimir relatório
+  const handlePrint = () => {
+    window.print();
+  };
 
-      const gastoTotal = obraLanc.reduce((sum, l) => sum + l.valor, 0);
+  // Exportar para PDF/Download
+  const handleDownload = () => {
+    const conteudo = relatorioRef.current?.innerText;
+    const element = document.createElement('a');
+    const file = new Blob([conteudo], { type: 'text/plain' });
+    element.href = URL.createObjectURL(file);
+    element.download = `relatorio_lancamentos_${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
 
-      return {
-        obraId: obra.id,
-        obraNome: obra.nome,
-        gastoSemanal,
-        gastoMensal,
-        gastoTotal,
-      };
-    });
-  }, [obras, lancamentos]);
-
-  const totals = useMemo(() => ({
-    semanal: reports.reduce((s, r) => s + r.gastoSemanal, 0),
-    mensal: reports.reduce((s, r) => s + r.gastoMensal, 0),
-    total: reports.reduce((s, r) => s + r.gastoTotal, 0),
-  }), [reports]);
-
-  const formatCurrency = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  if (obras.length === 0) {
+  if (lancamentos.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
-        <p className="text-sm text-muted-foreground">Nenhuma obra cadastrada</p>
+      <div className="rounded-lg border border-border bg-muted/20 p-8 text-center">
+        <p className="text-muted-foreground">Nenhum lançamento registrado para hoje</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Semana</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{formatCurrency(totals.semanal)}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Últimos 7 dias (fecha sexta)</p>
+    <div ref={relatorioRef} className="space-y-6 print:space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 print:hidden">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Relatório do Dia</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mês</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{formatCurrency(totals.mensal)}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">{format(new Date(), 'MMMM yyyy', { locale: ptBR })}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total</span>
-          </div>
-          <p className="text-xl font-bold text-foreground">{formatCurrency(totals.total)}</p>
-          <p className="text-[11px] text-muted-foreground mt-1">Acumulado histórico</p>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePrint}
+            className="flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" /> Imprimir
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleDownload}
+            className="flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" /> Baixar
+          </Button>
         </div>
       </div>
 
-      {/* Per-obra breakdown */}
-      <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="px-4 py-3 bg-muted/30 border-b border-border">
-          <span className="text-sm font-semibold">Detalhamento por Obra</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/10">
-                <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Obra</th>
-                <th className="text-right py-3 px-4 font-semibold text-muted-foreground">Semanal</th>
-                <th className="text-right py-3 px-4 font-semibold text-muted-foreground">Mensal</th>
-                <th className="text-right py-3 px-4 font-semibold text-muted-foreground">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {reports.map(r => (
-                <tr key={r.obraId} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                  <td className="py-3 px-4 font-medium">{r.obraNome}</td>
-                  <td className="py-3 px-4 text-right font-mono text-xs">{formatCurrency(r.gastoSemanal)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-xs">{formatCurrency(r.gastoMensal)}</td>
-                  <td className="py-3 px-4 text-right font-mono text-xs font-semibold">{formatCurrency(r.gastoTotal)}</td>
-                </tr>
-              ))}
-              <tr className="bg-primary/5 font-bold">
-                <td className="py-3 px-4 text-primary">TOTAL</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-primary">{formatCurrency(totals.semanal)}</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-primary">{formatCurrency(totals.mensal)}</td>
-                <td className="py-3 px-4 text-right font-mono text-xs text-primary">{formatCurrency(totals.total)}</td>
-              </tr>
-            </tbody>
-          </table>
+      {/* Lançamentos por Obra */}
+      <div className="space-y-4 print:space-y-3">
+        {Object.entries(lancamentosAgrupados).map(([obraNome, items]) => {
+          const totalObra = calcularTotalObra(items);
+          const isExpanded = expandedObras[obraNome] !== false;
+          
+          return (
+            <div 
+              key={obraNome} 
+              className="rounded-lg border border-border bg-background overflow-hidden shadow-sm"
+            >
+              <button
+                onClick={() => toggleObra(obraNome)}
+                className="w-full px-4 py-3 flex items-center justify-between hover:bg-muted/50 transition-colors print:pointer-events-none print:bg-transparent"
+              >
+                <div className="flex-1 text-left">
+                  <h3 className="font-semibold text-foreground">{obraNome}</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {items.length} lançamento{items.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-bold text-primary">R$ {totalObra.toFixed(2)}</p>
+                  </div>
+                  <div className="print:hidden">
+                    {isExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="border-t border-border divide-y divide-border print:border-t print:divide-y">
+                  {items.map((lcto, idx) => (
+                    <div 
+                      key={idx} 
+                      className="px-4 py-3 print:py-2 bg-muted/30 print:bg-white hover:bg-muted/50 print:hover:bg-white transition-colors"
+                    >
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 print:grid-cols-4 print:gap-2 text-sm">
+                        {/* Prestador */}
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide print:text-[11px]">Prestador</p>
+                          <p className="font-medium text-foreground mt-1 print:mt-0.5">{lcto.profissional || 'N/A'}</p>
+                          <p className="text-xs text-muted-foreground print:text-[10px]">{lcto.categoria || ''}</p>
+                        </div>
+
+                        {/* O que se refere */}
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide print:text-[11px]">Serviço</p>
+                          {lcto.descricaoEtapa ? (
+                            <p className="font-medium text-foreground mt-1 print:mt-0.5">{lcto.descricaoEtapa}</p>
+                          ) : (
+                            <p className="font-medium text-foreground mt-1 print:mt-0.5">
+                              {lcto.tipo === 'diaria' ? 'Diária' : 'Empreitada'}
+                              {lcto.turnos?.length > 0 && ` - ${lcto.turnos.join(', ')}`}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Detalhes */}
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide print:text-[11px]">Tipo</p>
+                          <p className="font-medium text-foreground mt-1 print:mt-0.5 capitalize">
+                            {lcto.tipo === 'diaria' ? '⏰ Diária' : '💼 Empreitada'}
+                          </p>
+                        </div>
+
+                        {/* Valor */}
+                        <div className="text-right sm:text-right">
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide print:text-[11px]">Valor</p>
+                          <p className="font-bold text-primary mt-1 print:mt-0.5 text-lg print:text-base">
+                            R$ {lcto.valor?.toFixed(2) || '0.00'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Resumo Total */}
+      <div className="rounded-lg bg-primary/10 border border-primary/20 p-6 print:bg-white print:border print:border-foreground/20 mt-6 print:mt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground print:text-[12px]">Total de Lançamentos</p>
+            <p className="text-lg font-semibold text-foreground mt-1 print:mt-0.5 print:text-base">
+              {lancamentos.length} pagamento{lancamentos.length !== 1 ? 's' : ''}
+            </p>
+          </div>
+          <div className="text-center print:text-right">
+            <p className="text-sm text-muted-foreground uppercase tracking-wide print:text-[11px]">Total Geral</p>
+            <p className="text-3xl print:text-2xl font-black text-primary mt-2 print:mt-1">
+              R$ {totalGeral.toFixed(2)}
+            </p>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @media print {
+          body { margin: 0; padding: 12mm; }
+          * { box-shadow: none !important; page-break-inside: avoid; }
+          .print\\:hidden { display: none; }
+        }
+      `}</style>
     </div>
   );
 }

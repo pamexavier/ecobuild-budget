@@ -2,6 +2,7 @@ import { Obra, Lancamento } from '@/lib/types';
 import { useMemo, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { TrendingUp, AlertTriangle, Layers, ChevronDown, ChevronRight } from 'lucide-react';
+import { GraficoDetalheObra } from './GraficoDetalheObra';
 
 interface Props {
   obras: Obra[];
@@ -22,6 +23,7 @@ function getBarClass(percent: number): string {
 
 export function DashboardOrcamento({ obras, lancamentos }: Props) {
   const [aberto, setAberto] = useState(false);
+  const [obraSelecionada, setObraSelecionada] = useState<Obra | null>(null);
 
   const obrasCategoriaData = useMemo(() => {
     return obras.map(obra => {
@@ -68,7 +70,13 @@ export function DashboardOrcamento({ obras, lancamentos }: Props) {
             return (
               <div key={obra.id} className="rounded-lg border border-border bg-card p-4 space-y-4">
                 <div className="flex items-start justify-between">
-                  <span className="text-sm font-semibold">{obra.nome}</span>
+                  <button
+                    type="button"
+                    onClick={() => setObraSelecionada(obra)}
+                    className="text-left text-sm font-semibold transition-colors hover:text-primary"
+                  >
+                    {obra.nome}
+                  </button>
                   {overBudget && <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />}
                 </div>
 
@@ -166,6 +174,14 @@ export function DashboardOrcamento({ obras, lancamentos }: Props) {
             })()}
           </div>
         </div>
+      )}
+
+      {obraSelecionada && (
+        <GraficoDetalheObra
+          obra={obraSelecionada}
+          lancamentos={lancamentos}
+          onClose={() => setObraSelecionada(null)}
+        />
       )}
     </div>
   );
