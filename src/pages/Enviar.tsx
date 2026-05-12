@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Sun, Sunset, Moon, Clock, Briefcase, DollarSign, Check, Send } from 'lucide-react';
+import { Sun, Sunset, Moon, Clock, Briefcase, DollarSign, Check, Send, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,6 +24,10 @@ const Enviar = () => {
   const [valorEmpreitada, setValorEmpreitada] = useState('');
   const [descricaoEtapa, setDescricaoEtapa] = useState('');
   const [assinadoPor, setAssinadoPor] = useState('');
+  const [dataLancamento, setDataLancamento] = useState(() => {
+    const hoje = new Date();
+    return hoje.toISOString().split('T')[0];
+  });
   const [submitted, setSubmitted] = useState(false);
 
   const selectedObra = obras.find(o => o.id === obraId);
@@ -49,7 +53,6 @@ const Enviar = () => {
     if (valorCalculado <= 0) return;
 
     const catOrc = categoriasObra.find(c => c.id === categoriaOrcamentoId);
-    const now = new Date().toISOString().split('T')[0];
 
     addLancamento({
       obraId,
@@ -64,7 +67,7 @@ const Enviar = () => {
       valor: valorCalculado,
       valorDiaria: tipo === 'diaria' ? parseFloat(valorDiaria) : undefined,
       descricaoEtapa: tipo === 'empreitada' ? descricaoEtapa : undefined,
-      data: now,
+      data: dataLancamento,
     });
 
     setSubmitted(true);
@@ -74,6 +77,8 @@ const Enviar = () => {
     setObraId(''); setProfissionalId(''); setCategoriaOrcamentoId('');
     setTurnos([]); setValorDiaria(''); setValorEmpreitada('');
     setDescricaoEtapa(''); setAssinadoPor(''); setSubmitted(false);
+    const hoje = new Date();
+    setDataLancamento(hoje.toISOString().split('T')[0]);
   };
 
   if (submitted) {
@@ -106,6 +111,19 @@ const Enviar = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="p-5 space-y-5 max-w-lg mx-auto">
+        <div>
+          <label className="text-base font-semibold block mb-2">Data do Lançamento</label>
+          <div className="relative">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input 
+              type="date" 
+              value={dataLancamento} 
+              onChange={e => setDataLancamento(e.target.value)} 
+              className="w-full rounded-lg border border-input bg-card pl-12 pr-4 py-4 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="text-base font-semibold block mb-2">Obra</label>
           <select value={obraId} onChange={e => { setObraId(e.target.value); setCategoriaOrcamentoId(''); }} className="w-full rounded-lg border border-input bg-card px-4 py-4 text-base appearance-none focus:outline-none focus:ring-2 focus:ring-ring">

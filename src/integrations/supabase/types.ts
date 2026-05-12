@@ -418,6 +418,30 @@ export type Tables<
       : never
     : never
 
+// ... (mantenha o restante igual)
+
+export interface Lancamento {
+  id: string;
+  obraId: string;
+  obraNome: string;
+  profissionalId: string;
+  profissional: string;
+  categoria: string;
+  categoriaOrcamentoId: string;
+  categoriaOrcamentoNome: string;
+  tipo: TipoLancamento;
+  turnos: string[];
+  valor: number;
+  descricaoEtapa?: string;
+  data: string;
+  ativo?: boolean; // ADICIONADO: Flag para controle de preenchimento
+  fornecedor?: string;
+  comprovanteUrl?: string;
+}
+
+// ...
+
+
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]

@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
 import { ChevronDown, ChevronUp, Printer, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CardPropostaPagamento, PropostaPagamento } from '@/components/SistemaPropostaPagamento';
 
-// MUDAMOS O NOME DA FUNÇÃO PARA BATER COM O SEU INDEX.TSX
 export function RelatoriosObra({ lancamentos = [] }) {
   const [expandedObras, setExpandedObras] = useState({});
+  const [propostas, setPropostas] = useState<PropostaPagamento[]>([]);
   const relatorioRef = useRef(null);
 
   // Agrupar lançamentos por obra
@@ -168,6 +169,21 @@ export function RelatoriosObra({ lancamentos = [] }) {
                       </div>
                     </div>
                   ))}
+
+                  {/* Card de Propostas de Pagamento */}
+                  {propostas
+                    .filter(p => p.obraId === obraNome)
+                    .map(proposta => (
+                      <div key={proposta.id} className="px-4 py-4 bg-white print:bg-white border-t border-border">
+                        <CardPropostaPagamento
+                          proposta={proposta}
+                          recebimentos={[]}
+                          aditivos={[]}
+                          onLancarRecebimento={() => {}}
+                          onAdicionarAditivo={() => {}}
+                        />
+                      </div>
+                    ))}
                 </div>
               )}
             </div>

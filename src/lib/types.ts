@@ -29,6 +29,10 @@ export interface Obra {
   clienteId?: string;
   clienteNome?: string;
   tipoContrato: TipoContrato;
+  // ADICIONADO:
+  valorContratoOriginal: number;
+  valorTotalAditivos: number;
+  valorTotalRecebido: number;
 }
 
 export interface Profissional {
