@@ -122,7 +122,7 @@ const Index = () => {
           <img src={logo} alt="Logo" className="w-8 h-8 rounded-xl" />
           <h1 className="text-sm font-extrabold tracking-tight uppercase">Zentra-X</h1>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1 sm:gap-1.5 text-xs sm:text-sm">
           <CadastrarClienteModal onAdd={addCliente} />
           <CadastrarObraModal onAdd={addObra} clientes={clientes} onAddCliente={addCliente} />
         </div>
