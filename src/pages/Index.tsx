@@ -59,6 +59,7 @@ const Index = () => {
   const {
     lancamentos = [], obras = [], profissionais = [], clientes = [], parceiros = [], comissoes = [], categorias = [], contas = [],
     addLancamento, addMultipleLancamentos, addObra, addCliente, addParceiro, updateParceiro, deleteParceiro,
+    updateLancamento, deleteLancamento,
     addComissao, addConta, updateConta, deleteConta, updateComissaoStatus, deleteComissao, updateCategorias, deleteObra
   } = useAppStore(tenantId) || {};
 
@@ -116,8 +117,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 text-white">
-      <header className="glass-strong border-b border-white/[0.06] sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
+      <header className="glass-strong border-b border-white/[0.06] sticky top-0 z-40 px-4 py-3 flex items-center justify-between print:hidden">
+        <div className="flex gap-1 sm:gap-1.5">
           <img src={logo} alt="Logo" className="w-8 h-8 rounded-xl" />
           <h1 className="text-sm font-extrabold tracking-tight uppercase">Zentra-X</h1>
         </div>
@@ -142,7 +143,7 @@ const Index = () => {
             </div>
             <div className="glass rounded-3xl p-5 overflow-hidden">
               <h3 className="text-xs font-bold uppercase text-zinc-500 mb-4">Lançamentos Recentes</h3>
-              <RelatoriosObra lancamentos={lancamentos || []} />
+              <RelatoriosObra lancamentos={lancamentos || []} profissionais={profissionais || []} onDelete={deleteLancamento} onUpdate={updateLancamento}/>
             </div>
           </section>
         )}
@@ -259,7 +260,7 @@ const Index = () => {
         {activeSection === 'relatoriosObra' && (
           <section className="pt-4 animate-in fade-in">
             <div className="glass rounded-3xl p-6 border border-white/10 shadow-2xl">
-              <RelatoriosObra lancamentos={lancamentos || []} />
+              <RelatoriosObra lancamentos={lancamentos || []} profissionais={profissionais || []} onDelete={deleteLancamento} onUpdate={updateLancamento} />
             </div>
           </section>
         )}
@@ -462,9 +463,10 @@ const Index = () => {
           }}
         />
       )}
-
+  <div className="print:hidden">
       <BottomNav active={activeSection} onNavigate={setActiveSection} onMenuOpen={() => setMenuOpen(true)} permissions={permissions} />
       <SideMenu open={menuOpen} onOpenChange={setMenuOpen} active={activeSection} onNavigate={setActiveSection} permissions={permissions} userEmail={user?.email || ''} onLogout={async () => { await signOut(); navigate('/login'); }} />
+    </div>
     </div>
   );
 };

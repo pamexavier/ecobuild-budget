@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from '@/hooks/AuthProvider'; // ✅ Adicionado useAuth
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import SemTenant from "@/pages/SemTenant";
 import SuperAdmin from "@/pages/SuperAdmin";
@@ -21,7 +21,7 @@ const queryClient = new QueryClient();
  * setar loading=false, não há mais janela onde tenantId ainda é null.
  */
 function TenantGate({ children }: { children: React.ReactNode }) {
-  const { user, tenantId, isSuperAdmin, loading } = useAuth();
+  const { user, tenantId, isSuperAdmin, loading } = useAuth(); // ✅ Agora funciona
 
   // Só mostra SemTenant se loading for false E já tentou buscar tenantId
   if (loading || (user && tenantId === null && !isSuperAdmin)) {

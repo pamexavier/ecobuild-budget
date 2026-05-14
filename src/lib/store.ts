@@ -202,6 +202,20 @@ export function useAppStore(tenantId: string | null) {
     fetchData();
   }, [tenantId, fetchData]);
 
+  const updateLancamento = useCallback(async (id: string, data: Partial<Lancamento>) => {
+    if (!tenantId) return;
+    await supabase.from('lancamentos').update({
+      obra_id: data.obraId,
+      profissional_id: data.profissionalId,
+      tipo: data.tipo,
+      valor: data.valor,
+      turnos: data.turnos,
+      data: data.data,
+      descricao_etapa: data.descricaoEtapa,
+    }).eq('id', id).eq('tenant_id', tenantId);
+    fetchData();
+  }, [tenantId, fetchData]);
+
   // ── FUNÇÕES DE OBRAS ──
   const addObra = useCallback(async (o: Omit<Obra, 'id' | 'gastoAtual'>) => {
     if (!tenantId) return;
@@ -342,6 +356,7 @@ export function useAppStore(tenantId: string | null) {
     // Funções de Exclusão
     deleteObra, deleteProfissional, deleteLancamento, deleteCliente, deleteParceiro, deleteComissao, deleteConta,
     
+    updateLancamento,
     // Sincronização
     fetchData,
   };
