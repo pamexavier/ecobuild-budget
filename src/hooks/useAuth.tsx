@@ -47,7 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchRoleAndPermissions = async (userId: string) => {
-    const { data } = await supabase
+    // A MÁGICA ACONTECE AQUI: maybeSingle() em vez de single()
+    const { data, error } = await supabase
       .from('user_roles')
       .select(`
         role,
@@ -62,7 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       `)
       .eq('user_id', userId)
       .limit(1)
-      .single();
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro silencioso ao buscar role do usuário:", error.message);
+    }
 
     if (data) {
       setRole(data.role as AppRole);

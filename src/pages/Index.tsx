@@ -1,726 +1,469 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, PieChart, BarChart3, Upload, Trash2, Users2, Filter, Percent, Printer, ChevronDown, ChevronRight, Zap, Building2, HardHat, Plus } from 'lucide-react';
+import { 
+  Trash2, Users2, X, Wallet, Hammer, Box, Info,
+  Search, AlertTriangle, ShoppingCart, FileText, Plus
+} from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 import { SideMenu } from '@/components/SideMenu';
-import { SectionDivider } from '@/components/SectionDivider';
 import { FormularioLancamento } from '@/components/FormularioLancamento';
-import { DashboardOrcamento } from '@/components/DashboardOrcamento';
 import { DashboardGeral } from '@/components/DashboardGeral';
+import { DashboardOrcamento } from '@/components/DashboardOrcamento';
 import { ResumoSemana } from '@/components/ResumoSemana';
 import { ImportarPlanilha } from '@/components/ImportarPlanilha';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
-import { CadastrarProfissionalModal } from '@/components/CadastrarProfissionalModal';
 import { CadastrarClienteModal } from '@/components/CadastrarClienteModal';
 import { RelatoriosObra } from '@/components/RelatoriosObra';
 import { GestaoComissoes } from '@/components/GestaoComissoes';
-import { AdiantamentoModal } from '@/components/AdiantamentoModal';
-import { FiltrosDashboard } from '@/components/FiltrosDashboard';
-import { CardDashboardContas, CardResumoFinanceiro, GerenciadorContas } from '@/components/SistemaContasAReceber';
+import { CardDashboardContas, GerenciadorContas } from '@/components/SistemaContasAReceber';
+import { ModalCriarProposta } from '@/components/SistemaPropostaPagamento'; // Importação da Proposta
 import { useAppStore } from '@/lib/store';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ContaAReceber, TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
+import { TIPO_CONTRATO_LABELS, TipoContrato } from '@/lib/types';
 import logo from '@/assets/logo.png';
+import { UploadContratoObra } from '@/components/UploadContratoObra';
+import { ServicosContratoChecklist } from '@/components/ServicosContratoChecklist';
+import { MateriaisNotaFiscal } from '@/components/MateriaisNotaFiscal';
 
-const formatarNome = (nome: string) => {
-  return nome
-    .trim()
-    .toLowerCase()
-    .split(/\s+/)
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
+const TabsObra = ({ active, onChange }: { active: string, onChange: (id: string) => void }) => (
+  <div className="flex bg-white/[0.03] p-1.5 rounded-2xl mb-8 border border-white/5 overflow-x-auto">
+    {[
+      { id: 'info', label: 'Resumo', icon: Info },
+      { id: 'contrato', label: 'Contrato', icon: FileText },
+      { id: 'financeiro', label: 'Financeiro', icon: Wallet },
+      { id: 'servicos', label: 'Execução', icon: Hammer },
+      { id: 'materiais', label: 'Materiais', icon: Box },
+    ].map((tab) => (
+      <button
+        key={tab.id}
+        onClick={() => onChange(tab.id)}
+        className={`flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-bold transition-all duration-300 whitespace-nowrap flex-shrink-0 ${
+          active === tab.id 
+            ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
+            : 'text-zinc-500 hover:text-white'
+        }`}
+      >
+        <tab.icon size={16} />
+        <span className="hidden sm:inline">{tab.label}</span>
+      </button>
+    ))}
+  </div>
+);
 
 const Index = () => {
-  const { user, permissions, tenantId, tenantNome, isSuperAdmin, signOut } = useAuth();
-
+  const { user, permissions, tenantId, tenantNome, signOut } = useAuth();
+  
   const {
-    lancamentos, obras, profissionais, clientes, parceiros, comissoes, categorias,
-    addLancamento, addMultipleLancamentos, addObra, addProfissional, addCliente,
-    addParceiro, addComissao, updateCategorias,
-    deleteObra, deleteLancamento, deleteCliente,
-    deleteParceiro, deleteComissao, updateComissaoStatus,
-  } = useAppStore(tenantId);
+    lancamentos = [], obras = [], profissionais = [], clientes = [], parceiros = [], comissoes = [], categorias = [], contas = [],
+    addLancamento, addMultipleLancamentos, addObra, addCliente, addParceiro, updateParceiro, deleteParceiro,
+    addComissao, addConta, updateConta, deleteConta, updateComissaoStatus, deleteComissao, updateCategorias, deleteObra
+  } = useAppStore(tenantId) || {};
 
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeSection, setActiveSection] = useState('lancamento');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [adiantamentoOpen, setAdiantamentoOpen] = useState(false);
-  const [contas, setContas] = useState<ContaAReceber[]>([]);
-  const [contasCarregadas, setContasCarregadas] = useState(false);
-  const [obraContaInicialId, setObraContaInicialId] = useState<string | null>(null);
-  // Filtros do dashboard
-  const [filtros, setFiltros] = useState({
-    clienteId: null,
-    empreendimentoId: null,
-    tipo: null,
-    tipoEmpreendimento: 'ambos',
-  });
-  const [clientesAberto, setClientesAberto] = useState(false);
-  const [obrasAberto, setObrasAberto] = useState(false);
+  const [activeTabObra, setActiveTabObra] = useState('info');
+  const [buscaObras, setBuscaObras] = useState('');
+  const [mostrarApenasAtraso, setMostrarApenasAtraso] = useState(false);
+  const [obraDetalheSelecionada, setObraDetalheSelecionada] = useState<any>(null);
+  
+  // States do Modal de Proposta
+  const [modalPropostaAberto, setModalPropostaAberto] = useState(false);
 
-  const showFinancial = permissions.podeEditarOrcamento;
+  const [matNome, setMatNome] = useState('');
+  const [matValor, setMatValor] = useState('');
+  
+  const [contratoObra, setContratoObra] = useState<any>(null);
+  const [servicosContrato, setServicosContrato] = useState<any[]>([]);
+  const [materiaisContrato, setMateriaisContrato] = useState<any[]>([]);
 
-  useEffect(() => {
-    const key = `contas-a-receber:${tenantId || 'local'}`;
-    const saved = localStorage.getItem(key);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved).map((conta: any) => ({
-          ...conta,
-          dataVencimento: new Date(conta.dataVencimento),
-          dataPagamento: conta.dataPagamento ? new Date(conta.dataPagamento) : undefined,
-        }));
-        setContas(parsed);
-      } catch {
-        setContas([]);
-      }
-    } else {
-      setContas([]);
-    }
-    setContasCarregadas(true);
-  }, [tenantId]);
+  const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-  useEffect(() => {
-    if (!contasCarregadas) return;
-    const key = `contas-a-receber:${tenantId || 'local'}`;
-    localStorage.setItem(key, JSON.stringify(contas));
-  }, [contas, contasCarregadas, tenantId]);
-
-  useEffect(() => {
-    if (permissions.podeEditarOrcamento) {
-      setActiveSection('dashboard');
-    } else {
-      setActiveSection('lancamento');
-    }
-  }, [permissions.podeEditarOrcamento]);
-
-  const navigateTo = (section: string) => {
-    setActiveSection(section);
+  const getObraInfo = (obra: any) => {
+    if (!obra) return { totalProposta: 0, valorPago: 0, aReceber: 0, temAtraso: false, contasObra: [] };
+    const contasObra = (contas || []).filter(c => c.obraId === obra.id);
+    const totalProposta = contasObra.reduce((s, c) => s + (c.valor || 0), 0);
+    const valorPago = contasObra.filter(c => c.status === 'pago').reduce((s, c) => s + (c.valor || 0), 0);
+    const aReceber = totalProposta - valorPago;
+    const temAtraso = contasObra.some(c => c.status !== 'pago' && new Date(c.dataVencimento) < new Date());
+    return { totalProposta, valorPago, aReceber, temAtraso, contasObra };
   };
 
-  const handleAdicionarConta = (conta: ContaAReceber) => {
-    setContas(prev => [...prev, conta]);
+  const handleAddMaterial = async () => {
+    if (!matNome || !matValor || !addLancamento) return;
+    await addLancamento({
+      obraId: obraDetalheSelecionada.id,
+      profissionalId: 'material-generico',
+      tipo: 'material' as any,
+      valor: parseFloat(matValor),
+      data: new Date().toISOString().split('T')[0],
+      descricaoEtapa: matNome,
+      turnos: ['Material']
+    });
+    setMatNome(''); setMatValor('');
+    toast({ title: "Material registado!" });
   };
 
-  const handleAtualizarConta = (contaAtualizada: ContaAReceber) => {
-    setContas(prev => prev.map(c => c.id === contaAtualizada.id ? contaAtualizada : c));
-  };
-
-  const handleDeletarConta = (contaId: string) => {
-    setContas(prev => prev.filter(c => c.id !== contaId));
-  };
-
-
-  // Aplica filtros de obras/projetos
-  const obrasFiltradas = obras.filter(o => {
-    if (filtros.clienteId && o.clienteId !== filtros.clienteId) return false;
-    if (filtros.tipoEmpreendimento === 'projeto') return false;
-    if (filtros.empreendimentoId && o.id !== filtros.empreendimentoId) return false;
-    return true;
-  });
-  const projetosFiltrados = (typeof projetos !== 'undefined' ? projetos : []).filter(p => {
-    if (filtros.clienteId && p.clienteId !== filtros.clienteId) return false;
-    if (filtros.tipoEmpreendimento === 'obra') return false;
-    if (filtros.empreendimentoId && p.id !== filtros.empreendimentoId) return false;
-    return true;
-  });
-  const lancamentosFiltrados = lancamentos.filter(l => {
-    if (filtros.tipo && l.tipo !== filtros.tipo) return false;
-    if (filtros.empreendimentoId) {
-      return (
-        obrasFiltradas.some(o => o.id === l.obraId) ||
-        projetosFiltrados.some(p => p.id === l.projetoId)
-      );
-    }
-    if (filtros.clienteId) {
-      return (
-        obrasFiltradas.some(o => o.id === l.obraId) ||
-        projetosFiltrados.some(p => p.id === l.projetoId)
-      );
-    }
-    return true;
-  });
-
-  const handleNovaCategoria = (nova: string) => {
-    if (!categorias.includes(nova)) updateCategorias([...categorias, nova]);
-  };
-
-  const handleLogout = async () => { await signOut(); navigate('/login'); };
-
-  const handleDeleteObra = async (id: string, nome: string) => {
-    if (!confirm(`Excluir obra "${nome}"?`)) return;
-    await deleteObra(id);
-    toast({ title: 'Obra excluída', description: nome });
-  };
-
-  const handleDeleteLancamento = async (id: string) => {
-    if (!confirm('Excluir este lançamento?')) return;
-    await deleteLancamento(id);
-    toast({ title: 'Lançamento excluído' });
-  };
-
-  const handleDeleteCliente = async (id: string, nome: string) => {
-    if (!confirm(`Excluir cliente "${nome}"?`)) return;
-    await deleteCliente(id);
-    toast({ title: 'Cliente excluído', description: nome });
-  };
-
-  const handlePrint = () => { window.print(); };
-
-  const hoje = new Date().toISOString().split('T')[0];
-  const lancamentosHoje = lancamentosFiltrados.filter(l => l.data === hoje);
-  const totalHoje = lancamentosHoje.reduce((s, l) => s + l.valor, 0);
-  const nomeProfissional = (id: string, nome?: string) =>
-    nome || profissionais.find(p => p.id === id)?.nome || 'Profissional nao informado';
-  const categoriaProfissional = (id: string, categoria?: string) =>
-    categoria || profissionais.find(p => p.id === id)?.categoria || 'Sem categoria';
-  const pixProfissional = (id: string) =>
-    profissionais.find(p => p.id === id)?.chavePix || 'Nao informado';
-  const nomeObra = (id: string, nome?: string) =>
-    nome || obras.find(o => o.id === id)?.nome || 'Obra nao informada';
-  const clientesOrdenados = useMemo(() => {
-    return [...clientes]
-      .map(cliente => ({ ...cliente, nome: formatarNome(cliente.nome || '') }))
-      .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [clientes]);
-  const descricaoPagamento = (tipo: string, turnos?: string[], descricaoEtapa?: string) => {
-    if (descricaoEtapa) return descricaoEtapa;
-    if (turnos?.includes('[ADIANTAMENTO]')) return 'Adiantamento';
-    return tipo === 'diaria' ? 'Diaria' : 'Empreitada';
-  };
-  const resumoObrasHoje = useMemo(() => {
-    return lancamentosHoje.reduce((acc, lancamento) => {
-      const obra = nomeObra(lancamento.obraId, lancamento.obraNome);
-      acc[obra] = (acc[obra] || 0) + lancamento.valor;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [lancamentosHoje, obras]);
+  const obrasOrdenadas = useMemo(() => {
+    let res = (obras || []).filter(o => (o.nome || '').toLowerCase().includes((buscaObras || '').toLowerCase()));
+    if (mostrarApenasAtraso) res = res.filter(o => getObraInfo(o).temAtraso);
+    return res.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+  }, [obras, buscaObras, mostrarApenasAtraso, contas]);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Compact header */}
-      <header className="glass-strong border-b border-white/[0.06] print:hidden sticky top-0 z-40">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <img src={logo} alt="Logo" className="w-8 h-8 rounded-xl object-contain" />
-            <div>
-              <h1 className="text-sm font-extrabold tracking-tight text-foreground">ZENTRA-X</h1>
-              <p className="text-[10px] text-muted-foreground">{tenantNome || user?.email}</p>
-            </div>
-          </div>
-
-          {/* Quick action buttons */}
-          <div className="flex gap-1.5">
-            {permissions.podeCriarObra && <CadastrarClienteModal onAdd={addCliente} />}
-            {permissions.podeCriarObra && (
-              <CadastrarObraModal onAdd={addObra} clientes={clientes} onAddCliente={addCliente} />
-            )}
-            {permissions.podeCadastrarProfissional && (
-              <CadastrarProfissionalModal
-                onAdd={addProfissional}
-                categoriasExtras={categorias}
-                onNovaCategoria={handleNovaCategoria}
-              />
-            )}
-          </div>
+    <div className="min-h-screen bg-background pb-20 text-white">
+      <header className="glass-strong border-b border-white/[0.06] sticky top-0 z-40 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <img src={logo} alt="Logo" className="w-8 h-8 rounded-xl" />
+          <h1 className="text-sm font-extrabold tracking-tight uppercase">Zentra-X</h1>
+        </div>
+        <div className="flex gap-1.5">
+          <CadastrarClienteModal onAdd={addCliente} />
+          <CadastrarObraModal onAdd={addObra} clientes={clientes} onAddCliente={addCliente} />
         </div>
       </header>
 
-
-      {/* Filters bar removida, agora só FiltrosDashboard controla os filtros */}
-
-      {/* Filtros Dashboard */}
-      {activeSection !== 'lancamento' && (
-        <div className="px-4 pt-4 pb-2 print:hidden">
-          <FiltrosDashboard
-            clientes={clientes}
-            obras={obras}
-            projetos={typeof projetos !== 'undefined' ? projetos : []}
-            onFilterChange={setFiltros}
-          />
-        </div>
-      )}
-
-      {/* Main content */}
       <main className="px-4 pb-8 space-y-6">
-        {/* DASHBOARD GERAL */}
-        {activeSection === 'dashboard' && showFinancial && (
-          <section className="pt-4">
-            <DashboardGeral
-              obras={obrasFiltradas}
-              lancamentos={lancamentosFiltrados}
-              profissionais={profissionais}
-              comissoes={comissoes}
-            />
-            <div className="mt-6">
-              <CardDashboardContas contas={contas} obras={obrasFiltradas} />
+        {activeSection === 'dashboard' && (
+          <section className="pt-4 space-y-6 animate-in fade-in">
+            <DashboardGeral obras={obras || []} lancamentos={lancamentos || []} profissionais={profissionais || []} comissoes={comissoes || []} />
+            <CardDashboardContas contas={contas || []} obras={obras || []} />
+          </section>
+        )}
+
+        {activeSection === 'lancamento' && (
+          <section className="pt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in">
+            <div className="glass rounded-3xl p-5">
+              <FormularioLancamento obras={obras || []} profissionais={profissionais || []} onSubmit={addLancamento} />
+            </div>
+            <div className="glass rounded-3xl p-5 overflow-hidden">
+              <h3 className="text-xs font-bold uppercase text-zinc-500 mb-4">Lançamentos Recentes</h3>
+              <RelatoriosObra lancamentos={lancamentos || []} />
             </div>
           </section>
         )}
 
-        {/* LANÇAMENTO */}
-        {activeSection === 'lancamento' && permissions.podeLancarDespesa && (
-          <section className="pt-4">
-            <div className="print:hidden">
-              <SectionDivider title="Lançamento" icon={FileText} />
+        {activeSection === 'clientes' && (
+  <section className="pt-4 space-y-6 animate-in fade-in">
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-black uppercase tracking-tighter text-white">
+        Obras e Projetos
+      </h2>
+      
+      <div className="relative flex-1 max-w-md ml-8">
+        <Search className="absolute left-3 top-2.5 w-4 h-4 text-zinc-500" />
+        <input 
+          type="text" 
+          placeholder="Procurar registro..." 
+          value={buscaObras} 
+          onChange={e => setBuscaObras(e.target.value)} 
+          className="w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-2xl text-sm outline-none focus:border-purple-500/50 transition-all" 
+        />
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      {obrasOrdenadas.map(o => {
+        const { totalProposta, aReceber, temAtraso } = getObraInfo(o);
+        const percGasto = o.orcamentoLimite ? ((o.gastoAtual || 0) / o.orcamentoLimite) * 100 : 0;
+        
+        const isProjeto = o.tipoContrato === 'projeto';
+        
+        // Estilo Neon Lilás ou Verde
+        const glowClass = isProjeto 
+          ? 'shadow-[0_0_25px_rgba(168,85,247,0.15)] border-purple-500/30 bg-purple-500/[0.02]' 
+          : 'shadow-[0_0_25px_rgba(16,185,129,0.15)] border-emerald-500/30 bg-emerald-500/[0.02]';
+
+        return (
+          <div 
+            key={o.id} 
+            onClick={() => { setObraDetalheSelecionada(o); setActiveTabObra('info'); }} 
+            className={`glass rounded-[32px] p-6 cursor-pointer border transition-all hover:scale-[1.01] ${glowClass} ${temAtraso ? 'border-red-500/50' : ''}`}
+          >
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg mb-2 inline-block ${
+                  isProjeto ? 'bg-purple-500/20 text-purple-300' : 'bg-emerald-500/20 text-emerald-300'
+                }`}>
+                  {TIPO_CONTRATO_LABELS[o.tipoContrato]}
+                </span>
+                <h3 className="text-lg font-black uppercase text-white tracking-tight">
+                  {o.nome || 'Sem Nome'}
+                </h3>
+                <p className="text-xs text-zinc-400 font-bold mt-1">{o.clienteNome}</p>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); deleteObra(o.id); }} className="text-zinc-600 hover:text-red-500"><Trash2 size={18} /></button>
             </div>
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-4 print:hidden">
-              <div className="glass rounded-2xl p-4 sm:p-5">
-                <FormularioLancamento
-                  obras={obrasFiltradas}
-                  profissionais={profissionais}
-                  onSubmit={addLancamento}
-                  onAddProfissional={permissions.podeCadastrarProfissional ? addProfissional : undefined}
+
+            {/* ENDEREÇO - CORRIGIDO: Cores claras para não "apagar" no fundo */}
+            <div className="mb-5 flex items-center gap-2">
+              <p className={`text-[11px] font-bold truncate ${isProjeto ? 'text-purple-200' : 'text-emerald-200'}`}>
+                📍 {o.endereco || 'Endereço não informado'}
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <div className="flex justify-between mb-2">
+                <span className="text-[10px] font-black text-zinc-500 uppercase">Progresso</span>
+                <span className={`text-[10px] font-black ${isProjeto ? 'text-purple-400' : 'text-emerald-400'}`}>{Math.round(percGasto)}%</span>
+              </div>
+              <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                <div 
+                  className={`h-full transition-all duration-1000 ${
+                    percGasto > 100 ? 'bg-red-500' : (isProjeto ? 'bg-purple-500 shadow-[0_0_15px_#a855f7]' : 'bg-emerald-500 shadow-[0_0_15px_#10b981]')
+                  }`} 
+                  style={{ width: `${Math.min(percGasto, 100)}%` }} 
                 />
               </div>
+            </div>
 
-              <div className="glass rounded-2xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/[0.06] flex justify-between items-center">
-                  <span className="text-sm font-bold">Hoje</span>
-                  <span className="text-xs font-extrabold text-primary">R$ {totalHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </div>
-                {lancamentosHoje.length > 0 ? (
-                  <div className="divide-y divide-white/[0.04] max-h-[350px] overflow-y-auto">
-                    {[...lancamentosHoje].reverse().map(l => (
-                      <div key={l.id} className="flex items-center justify-between px-4 py-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate">{nomeProfissional(l.profissionalId, l.profissional)}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {categoriaProfissional(l.profissionalId, l.categoria)} · {nomeObra(l.obraId, l.obraNome)}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 ml-2">
-                          <span className={`text-[10px] font-bold uppercase px-2 py-1 rounded-lg ${
-                            l.tipo === 'diaria' ? 'bg-primary/15 text-primary' : 'bg-accent/15 text-accent-foreground'
-                          }`}>
-                            {l.tipo === 'diaria' ? 'Diária' : 'Empr.'}
-                          </span>
-                          <span className="text-sm font-extrabold text-primary whitespace-nowrap">
-                            R$ {l.valor?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                          {permissions.podeGerenciarAcessos && (
-                            <button onClick={() => handleDeleteLancamento(l.id)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors print:hidden">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-10 text-center text-sm text-muted-foreground">
-                    Nenhum lançamento hoje
-                  </div>
-                )}
+            <div className="grid grid-cols-2 border-t border-white/10 pt-5">
+              <div>
+                <p className="text-[9px] font-black text-zinc-500 uppercase">Investido</p>
+                <p className="text-sm font-black text-white">{formatCurrency(o.gastoAtual || 0)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[9px] font-black text-zinc-500 uppercase">Contrato</p>
+                <p className="text-sm font-black text-white">{formatCurrency(totalProposta)}</p>
+              </div>
 
-                {/* Últimos lançamentos */}
-                {lancamentosFiltrados.length > 0 && (
-                  <>
-                    <div className="px-4 py-2.5 border-t border-white/[0.06] flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Recentes</span>
-                      <Button onClick={handlePrint} variant="ghost" size="sm" className="h-7 gap-1 text-[10px] print:hidden">
-                        <Printer className="w-3 h-3" /> Imprimir
-                      </Button>
-                    </div>
-                    <div className="divide-y divide-white/[0.04] max-h-48 overflow-y-auto">
-                      {lancamentosFiltrados.slice(-10).reverse().map(l => (
-                        <div key={l.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{nomeProfissional(l.profissionalId, l.profissional)}</span>
-                            <span className="text-muted-foreground"> · {categoriaProfissional(l.profissionalId, l.categoria)} · {nomeObra(l.obraId, l.obraNome)}</span>
-                          </div>
-                          <span className="font-bold text-primary ml-2">R$ {l.valor?.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+              <div className={`col-span-2 mt-5 p-4 rounded-2xl flex justify-between items-center border ${
+                isProjeto ? 'bg-purple-500/10 border-purple-500/20' : 'bg-emerald-500/10 border-emerald-500/20'
+              }`}>
+                <p className={`text-[10px] font-black uppercase ${isProjeto ? 'text-purple-400' : 'text-emerald-400'}`}>Saldo Pendente</p>
+                <p className={`text-lg font-black ${isProjeto ? 'text-purple-300' : 'text-emerald-300'}`}>{formatCurrency(aReceber)}</p>
               </div>
             </div>
-
-            <div id="relatorio-pagamentos-dia" className="hidden print:block">
-              <div className="relatorio-pagamentos">
-                <div className="relatorio-cabecalho">
-                  <div>
-                    <p className="relatorio-marca">ZENTRA-X</p>
-                    <h1>Relatorio de Pagamentos</h1>
-                    <p>Data: {new Date(`${hoje}T00:00:00`).toLocaleDateString('pt-BR')}</p>
-                  </div>
-                  <div className="relatorio-total">
-                    <span>Total do dia</span>
-                    <strong>R$ {totalHoje.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
-                  </div>
-                </div>
-
-                <section className="relatorio-bloco">
-                  <h2>Resumo por obra</h2>
-                  <div className="relatorio-resumo-grid">
-                    {Object.entries(resumoObrasHoje).map(([obra, total]) => (
-                      <div key={obra} className="relatorio-resumo-item">
-                        <span>{obra}</span>
-                        <strong>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
-                      </div>
-                    ))}
-                    {Object.keys(resumoObrasHoje).length === 0 && (
-                      <p className="relatorio-vazio">Nenhum pagamento registrado hoje.</p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="relatorio-bloco">
-                  <h2>Pagamentos</h2>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Prestador</th>
-                        <th>PIX</th>
-                        <th>Categoria</th>
-                        <th>Obra</th>
-                        <th>Pagamento</th>
-                        <th className="texto-direita">Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...lancamentosHoje].reverse().map(l => (
-                        <tr key={l.id}>
-                          <td>{nomeProfissional(l.profissionalId, l.profissional)}</td>
-                          <td>{pixProfissional(l.profissionalId)}</td>
-                          <td>{categoriaProfissional(l.profissionalId, l.categoria)}</td>
-                          <td>{nomeObra(l.obraId, l.obraNome)}</td>
-                          <td>{descricaoPagamento(l.tipo, l.turnos, l.descricaoEtapa)}</td>
-                          <td className="texto-direita valor">R$ {l.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </section>
-              </div>
-            </div>
-
-            <style dangerouslySetInnerHTML={{ __html: `
-              @media print {
-                @page { margin: 12mm; }
-                body * { visibility: hidden !important; }
-                #relatorio-pagamentos-dia, #relatorio-pagamentos-dia * { visibility: visible !important; }
-                #relatorio-pagamentos-dia {
-                  display: block !important;
-                  position: absolute !important;
-                  inset: 0 auto auto 0 !important;
-                  width: 100% !important;
-                  color: #0f172a !important;
-                  font-family: Arial, sans-serif !important;
-                }
-                .relatorio-pagamentos { width: 100%; }
-                .relatorio-cabecalho {
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: flex-end;
-                  border-bottom: 3px solid #15803d;
-                  padding-bottom: 14px;
-                  margin-bottom: 18px;
-                }
-                .relatorio-marca {
-                  margin: 0 0 4px;
-                  color: #15803d;
-                  font-size: 10px;
-                  font-weight: 900;
-                  letter-spacing: 0.22em;
-                }
-                .relatorio-cabecalho h1 {
-                  margin: 0;
-                  font-size: 24px;
-                  text-transform: uppercase;
-                  font-weight: 900;
-                }
-                .relatorio-cabecalho p {
-                  margin: 4px 0 0;
-                  font-size: 12px;
-                  color: #475569;
-                }
-                .relatorio-total { text-align: right; }
-                .relatorio-total span {
-                  display: block;
-                  color: #475569;
-                  font-size: 11px;
-                  font-weight: 800;
-                  text-transform: uppercase;
-                }
-                .relatorio-total strong {
-                  color: #15803d;
-                  font-size: 24px;
-                  font-weight: 900;
-                }
-                .relatorio-bloco {
-                  margin-top: 16px;
-                  break-inside: avoid;
-                }
-                .relatorio-bloco h2 {
-                  margin: 0 0 8px;
-                  color: #15803d;
-                  font-size: 13px;
-                  text-transform: uppercase;
-                  font-weight: 900;
-                }
-                .relatorio-resumo-grid {
-                  display: grid;
-                  grid-template-columns: repeat(2, minmax(0, 1fr));
-                  gap: 8px;
-                }
-                .relatorio-resumo-item {
-                  display: flex;
-                  justify-content: space-between;
-                  gap: 12px;
-                  border: 1px solid #cbd5e1;
-                  border-radius: 6px;
-                  padding: 8px 10px;
-                  font-size: 12px;
-                }
-                .relatorio-resumo-item strong,
-                .valor {
-                  color: #15803d;
-                  font-weight: 900;
-                }
-                .relatorio-vazio {
-                  margin: 0;
-                  color: #64748b;
-                  font-size: 12px;
-                }
-                table {
-                  width: 100%;
-                  border-collapse: collapse;
-                  font-size: 11px;
-                }
-                th {
-                  background: #0f172a !important;
-                  color: white !important;
-                  padding: 8px;
-                  text-align: left;
-                  text-transform: uppercase;
-                  font-size: 9px;
-                  letter-spacing: 0.04em;
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-                td {
-                  border-bottom: 1px solid #e2e8f0;
-                  padding: 8px;
-                  vertical-align: top;
-                }
-                .texto-direita { text-align: right; }
-              }
-            `}} />
-
-            {/* FAB - Novo Adiantamento */}
-            <button
-              onClick={() => setAdiantamentoOpen(true)}
-              className="fixed bottom-20 right-4 z-40 flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl px-5 py-4 shadow-2xl shadow-primary/30 active:scale-95 transition-all print:hidden"
-            >
-              <Zap className="w-5 h-5" />
-              <span className="text-sm font-bold hidden sm:inline">Adiantamento</span>
-            </button>
+          </div>
+        );
+      })}
+    </div>
+  </section>
+)}
+        {activeSection === 'orcamento' && (
+          <section className="pt-4 animate-in fade-in">
+            <DashboardOrcamento obras={obras || []} lancamentos={lancamentos || []} categorias={categorias || []} updateCategorias={updateCategorias} />
           </section>
         )}
 
-        {/* CLIENTES */}
-        {activeSection === 'clientes' && permissions.podeCriarObra && (
-          <section className="pt-4 print:hidden space-y-4">
-            <button
-              onClick={() => setClientesAberto(v => !v)}
-              className="w-full flex items-center justify-between group"
-            >
-              <SectionDivider title={`Clientes (${clientes.length})`} icon={Users2} />
-              <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
-                {clientesAberto ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-              </span>
-            </button>
-
-            {clientesAberto && (
-              <div className="glass rounded-2xl divide-y divide-white/[0.04] animate-in fade-in duration-200">
-                {clientesOrdenados.length > 0 ? clientesOrdenados.map(c => (
-                  <div key={c.id} className="flex items-center justify-between px-4 py-4">
-                    <div>
-                      <span className="text-sm font-semibold">{c.nome}</span>
-                      {c.cpfCnpj && <span className="text-xs text-muted-foreground ml-2">{c.cpfCnpj}</span>}
-                      <div className="text-[10px] text-muted-foreground mt-0.5">
-                        {obras.filter(o => o.clienteId === c.id).length} obra(s)
-                      </div>
-                    </div>
-                    <button onClick={() => handleDeleteCliente(c.id, c.nome)} className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-xl">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                )) : (
-                  <div className="p-8 text-center text-sm text-muted-foreground">Nenhum cliente cadastrado</div>
-                )}
-              </div>
-            )}
-
-            {/* Obras */}
-            <button
-              onClick={() => setObrasAberto(v => !v)}
-              className="w-full flex items-center justify-between group"
-            >
-              <SectionDivider title={`Obras / Projetos (${obrasFiltradas.length})`} icon={HardHat} />
-              <span className="ml-3 text-muted-foreground group-hover:text-primary transition-colors">
-                {obrasAberto ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-              </span>
-            </button>
-
-            {obrasAberto && (
-              <div className="glass rounded-2xl divide-y divide-white/[0.04] animate-in fade-in duration-200">
-                {obrasFiltradas.length > 0 ? obrasFiltradas.map(o => (
-                  <div key={o.id} className="px-4 py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="text-sm font-semibold">{o.nome}</span>
-                        <span className="text-[10px] ml-2 px-2 py-0.5 rounded-lg bg-primary/10 text-primary font-bold uppercase">
-                          {TIPO_CONTRATO_LABELS[o.tipoContrato as TipoContrato] || o.tipoContrato}
-                        </span>
-                        {o.clienteNome && <span className="text-xs text-muted-foreground ml-2">· {o.clienteNome}</span>}
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          R$ {o.gastoAtual?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} / R$ {o.orcamentoLimite?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                      </div>
-                      <button onClick={() => handleDeleteObra(o.id, o.nome)} className="p-2 text-muted-foreground hover:text-destructive transition-colors rounded-xl">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <CardResumoFinanceiro
-                      obraId={o.id}
-                      contas={contas}
-                      onAdicionarConta={() => {
-                        setObraContaInicialId(o.id);
-                        setActiveSection('contasReceber');
-                      }}
-                    />
-                  </div>
-                )) : (
-                  <div className="p-8 text-center text-sm text-muted-foreground">Nenhuma obra cadastrada</div>
-                )}
-              </div>
-            )}
+        {activeSection === 'relatorios' && (
+          <section className="pt-4 animate-in fade-in">
+            <ResumoSemana lancamentos={lancamentos || []} obras={obras || []} profissionais={profissionais || []} />
           </section>
         )}
 
-        {/* ORÇAMENTO */}
-        {activeSection === 'orcamento' && showFinancial && (
-          <section className="pt-4">
-            <SectionDivider title="Dashboard de Orçamento" icon={PieChart} />
-            <div className="mt-3">
-              <DashboardOrcamento obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
+        {activeSection === 'relatoriosObra' && (
+          <section className="pt-4 animate-in fade-in">
+            <div className="glass rounded-3xl p-6 border border-white/10 shadow-2xl">
+              <RelatoriosObra lancamentos={lancamentos || []} />
             </div>
           </section>
         )}
 
-        {/* RELATÓRIOS DE OBRA */}
-        {activeSection === 'relatoriosObra' && showFinancial && (
-          <section className="pt-4">
-            <SectionDivider title="Relatórios de Obra" icon={BarChart3} />
-            <div className="mt-3">
-              <RelatoriosObra obras={obrasFiltradas} lancamentos={lancamentosFiltrados} />
-            </div>
+        {activeSection === 'importar' && (
+          <section className="pt-4 animate-in fade-in">
+             <div className="glass rounded-3xl p-8 border border-white/10">
+                <ImportarPlanilha onImport={addMultipleLancamentos} />
+             </div>
           </section>
         )}
 
-        {/* COMISSÕES */}
-        {activeSection === 'comissoes' && permissions.podeGerenciarAcessos && (
-          <section className="pt-4 print:hidden">
-            <SectionDivider title="Comissões e Parceiros" icon={Percent} />
-            <div className="mt-3">
-              <GestaoComissoes
-                parceiros={parceiros}
-                comissoes={comissoes}
-                obras={obras}
-                onAddParceiro={addParceiro}
-                onAddComissao={addComissao}
-                onUpdateStatus={updateComissaoStatus}
-                onDeleteComissao={deleteComissao}
-                onDeleteParceiro={deleteParceiro}
-              />
-            </div>
+        {activeSection === 'contasReceber' && (
+          <section className="pt-4 animate-in fade-in">
+            <GerenciadorContas contas={contas || []} obras={obras || []} onAdicionarConta={addConta} onAtualizarConta={updateConta} onDeletarConta={deleteConta} />
           </section>
         )}
-
-        {/* CONTAS A RECEBER */}
-        {activeSection === 'contasReceber' && showFinancial && (
-          <section className="pt-4 print:hidden">
-            <SectionDivider title="Contas a Receber" icon={Percent} />
-            <div className="mt-3">
-              <GerenciadorContas
-                contas={contas}
-                obras={obrasFiltradas}
-                onAdicionarConta={handleAdicionarConta}
-                onAtualizarConta={handleAtualizarConta}
-                onDeletarConta={handleDeletarConta}
-                obraInicialId={obraContaInicialId}
-                onObraInicialConsumida={() => setObraContaInicialId(null)}
-              />
-            </div>
-          </section>
-        )}
-
-        {/* RESUMO DA SEMANA */}
-        {activeSection === 'relatorios' && showFinancial && (
-          <section className="pt-4">
-            <SectionDivider title="Resumo da Semana" icon={BarChart3} />
-            <div className="mt-3">
-              <ResumoSemana lancamentos={lancamentosFiltrados} obras={obrasFiltradas} profissionais={profissionais} />
-            </div>
-          </section>
-        )}
-
-        {/* IMPORTAR */}
-        {activeSection === 'importar' && showFinancial && (
-          <section className="pt-4 print:hidden">
-            <SectionDivider title="Importar Dados" icon={Upload} />
-            <div className="mt-3">
-              <ImportarPlanilha
-                obras={obras}
-                profissionais={profissionais}
-                onImport={addMultipleLancamentos}
-                onAddProfissional={addProfissional}
-                onAddObra={addObra}
-                categoriasExtras={categorias}
-                onNovaCategoria={handleNovaCategoria}
-              />
-            </div>
+        
+        {activeSection === 'comissoes' && (
+          <section className="pt-4 animate-in fade-in">
+            <GestaoComissoes 
+              comissoes={comissoes || []} parceiros={parceiros || []} obras={obras || []} contas={contas || []}
+              onAddParceiro={addParceiro} onUpdateParceiro={updateParceiro} onDeleteParceiro={deleteParceiro}
+              onAddComissao={addComissao} onUpdateStatus={updateComissaoStatus} onDeleteComissao={deleteComissao}
+            />
           </section>
         )}
       </main>
 
-      {/* Bottom Navigation */}
-      <BottomNav
-        active={activeSection}
-        onNavigate={navigateTo}
-        onMenuOpen={() => setMenuOpen(true)}
-        permissions={permissions}
-      />
+      {/* MODAL DETALHES OBRA */}
+      {obraDetalheSelecionada && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-xl animate-in fade-in">
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-[40px] max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+            <div className="p-8 border-b border-white/5 flex items-start justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{obraDetalheSelecionada?.nome || 'Sem Nome'}</h2>
+                <p className="text-sm text-zinc-500 font-bold flex items-center gap-2"><Users2 size={14} className="text-emerald-500" /> {obraDetalheSelecionada?.clienteNome || 'Cliente não definido'}</p>
+              </div>
+              <button onClick={() => setObraDetalheSelecionada(null)} className="bg-white/5 p-3 rounded-full text-zinc-500 hover:text-white transition-all"><X className="w-6 h-6" /></button>
+            </div>
 
-      {/* Side Menu */}
-      <SideMenu
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        active={activeSection}
-        onNavigate={navigateTo}
-        permissions={permissions}
-        isSuperAdmin={isSuperAdmin}
-        tenantNome={tenantNome}
-        userEmail={user?.email || ''}
-        onLogout={handleLogout}
-      />
+            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+              <TabsObra active={activeTabObra} onChange={setActiveTabObra} />
 
-      {/* Adiantamento Modal */}
-      <AdiantamentoModal
-        open={adiantamentoOpen}
-        onOpenChange={setAdiantamentoOpen}
-        profissionais={profissionais}
-        obras={obrasFiltradas}
-        onSubmit={addLancamento}
-      />
+              {/* TAB: CONTRATO */}
+              {activeTabObra === 'contrato' && (
+                <div className="space-y-6 animate-in fade-in">
+                  {!contratoObra ? (
+                    <UploadContratoObra
+                      obraId={obraDetalheSelecionada.id}
+                      tenantId={tenantId}
+                      onSucesso={(dados) => {
+                        setContratoObra(dados);
+                        setServicosContrato(dados.dados?.servicos || []);
+                        setMateriaisContrato(dados.dados?.materiais || []);
+                      }}
+                    />
+                  ) : (
+                    <>
+                      <div className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-white/5 rounded-2xl p-6">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-[9px] font-black text-zinc-600 uppercase mb-2">Contrato Analisado</p>
+                            <p className="text-lg font-black text-white">{formatCurrency(contratoObra.dados?.valor_total)}</p>
+                            <p className="text-[10px] text-zinc-500 font-bold mt-1">
+                              {contratoObra.dados?.data_inicio_prevista} até {contratoObra.dados?.data_termino_prevista}
+                            </p>
+                          </div>
+                          <button onClick={() => setContratoObra(null)} className="text-zinc-600 hover:text-red-500 transition-all"><X size={20} /></button>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 bg-white/[0.02] p-2 rounded-2xl border border-white/5">
+                        <button onClick={() => setActiveTabObra('contrato-servicos')} className="flex-1 py-2 px-3 bg-emerald-500/20 text-emerald-400 rounded-xl text-[9px] font-black uppercase">Serviços</button>
+                        <button onClick={() => setActiveTabObra('contrato-materiais')} className="flex-1 py-2 px-3 text-zinc-500 rounded-xl text-[9px] font-black uppercase hover:text-white">Materiais</button>
+                      </div>
+                      {activeTabObra === 'contrato-servicos' && <ServicosContratoChecklist servicos={servicosContrato} valorTotal={contratoObra.dados?.valor_total || 0} />}
+                      {activeTabObra === 'contrato-materiais' && <MateriaisNotaFiscal materiais={materiaisContrato} notaFiscalUrl={contratoObra.url_arquivo} />}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* TAB: INFO */}
+              {activeTabObra === 'info' && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-in fade-in">
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6"><p className="text-[10px] font-black text-zinc-600 uppercase mb-2">Orçamento Previsto</p><p className="text-xl font-black text-white">{formatCurrency(obraDetalheSelecionada.orcamentoLimite || 0)}</p></div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6"><p className="text-[10px] font-black text-zinc-600 uppercase mb-2">Total Gasto</p><p className="text-xl font-black text-orange-500">{formatCurrency(obraDetalheSelecionada.gastoAtual || 0)}</p></div>
+                  <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6"><p className="text-[10px] font-black text-zinc-600 uppercase mb-2">Saldo em Caixa</p><p className="text-xl font-black text-emerald-500">{formatCurrency((obraDetalheSelecionada.orcamentoLimite || 0) - (obraDetalheSelecionada.gastoAtual || 0))}</p></div>
+                </div>
+              )}
+
+              {/* TAB: FINANCEIRO (INTEGRADO COM PROPOSTA) */}
+              {activeTabObra === 'financeiro' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-black uppercase text-zinc-400">Fluxo de Pagamentos</h3>
+                    <Button 
+                      onClick={() => setModalPropostaAberto(true)}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase px-4"
+                    >
+                      <Plus size={14} className="mr-2" /> Gerar Proposta / Parcelas
+                    </Button>
+                  </div>
+                  {(() => {
+                    const info = getObraInfo(obraDetalheSelecionada);
+                    return (
+                      <>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="bg-emerald-500/10 p-5 rounded-2xl"><p className="text-[9px] font-black text-emerald-600 uppercase">Recebido</p><p className="text-lg font-black text-white">{formatCurrency(info.valorPago)}</p></div>
+                          <div className="bg-blue-500/10 p-5 rounded-2xl"><p className="text-[9px] font-black text-blue-600 uppercase">Falta</p><p className="text-lg font-black text-white">{formatCurrency(info.aReceber)}</p></div>
+                          <div className="bg-white/5 p-5 rounded-2xl"><p className="text-[9px] font-black text-zinc-500 uppercase">Total</p><p className="text-lg font-black text-white">{formatCurrency(info.totalProposta)}</p></div>
+                        </div>
+                        <div className="space-y-3">
+                          {info.contasObra.length === 0 ? (
+                            <div className="p-12 border-2 border-dashed border-white/5 rounded-3xl text-center text-zinc-500 font-bold uppercase">Sem movimentos financeiros</div>
+                          ) : (
+                            info.contasObra.map(p => (
+                              <div key={p.id} className="flex items-center justify-between bg-white/5 p-4 rounded-2xl border border-white/5">
+                                <div><p className={`text-sm font-bold ${p.status === 'pago' ? 'text-zinc-500 line-through' : 'text-white'}`}>{p.descricao}</p><p className="text-[10px] text-zinc-500 font-bold uppercase">{new Date(p.dataVencimento).toLocaleDateString('pt-BR')}</p></div>
+                                <p className={`text-sm font-black ${p.status === 'pago' ? 'text-zinc-600' : 'text-emerald-500'}`}>{formatCurrency(p.valor)}</p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* TAB: MATERIAIS */}
+              {activeTabObra === 'materiais' && (
+                <div className="space-y-8 animate-in fade-in">
+                  <div className="bg-emerald-500/5 border border-emerald-500/10 p-6 rounded-[32px] space-y-4">
+                    <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2"><ShoppingCart size={16} /> Lançar Compra / Nota</h4>
+                    <div className="grid grid-cols-4 gap-3">
+                      <input type="text" value={matNome} onChange={e => setMatNome(e.target.value)} placeholder="O que comprou?" className="col-span-2 bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white" />
+                      <input type="number" value={matValor} onChange={e => setMatValor(e.target.value)} placeholder="Valor R$" className="bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-sm text-white" />
+                      <Button onClick={handleAddMaterial} disabled={!matNome || !matValor} className="bg-emerald-600 font-black uppercase text-[10px] h-full rounded-xl">Lançar</Button>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    {(lancamentos || []).filter(l => l.obraId === obraDetalheSelecionada.id && l.tipo === 'material').map(m => (
+                      <div key={m.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center"><div className="flex items-center gap-4"><Box className="text-emerald-500" size={18} /><div><p className="text-sm font-bold text-white uppercase">{m.descricaoEtapa}</p><p className="text-[10px] text-zinc-600 font-black">{new Date(m.data).toLocaleDateString('pt-BR')}</p></div></div><p className="text-sm font-black text-white">{formatCurrency(m.valor)}</p></div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: SERVIÇOS/EXECUÇÃO */}
+              {activeTabObra === 'servicos' && (
+                <div className="space-y-6 animate-in fade-in">
+                  {contratoObra ? (
+                    <ServicosContratoChecklist servicos={servicosContrato} valorTotal={contratoObra.dados?.valor_total || 0} />
+                  ) : (
+                    <div className="p-12 border-2 border-dashed border-white/5 rounded-3xl text-center text-zinc-500 font-bold uppercase">Importe um contrato para ver os serviços</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-8 border-t border-white/5 bg-zinc-950/50 flex gap-3">
+               <button className="flex-1 py-4 bg-white/5 text-zinc-400 rounded-2xl text-[10px] font-black uppercase">Exportar PDF</button>
+               <button onClick={() => setObraDetalheSelecionada(null)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase">Fechar Central</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE PROPOSTA INTELIGENTE */}
+      {modalPropostaAberto && obraDetalheSelecionada && (
+        <ModalCriarProposta 
+          obra={obraDetalheSelecionada} 
+          onClose={() => setModalPropostaAberto(false)}
+          onSave={(proposta) => {
+            // Lançar Entrada
+            addConta({
+              obraId: obraDetalheSelecionada.id,
+              descricao: "Entrada Contrato",
+              valor: proposta.entrada.valor,
+              dataVencimento: new Date(),
+              status: 'aberto',
+              tipo: 'Entrada'
+            });
+
+            // Lançar Parcelas
+            proposta.parcelas.forEach(p => {
+              addConta({
+                obraId: obraDetalheSelecionada.id,
+                descricao: p.descricao,
+                valor: p.valor,
+                dataVencimento: p.dataVencimento,
+                status: 'aberto',
+                tipo: 'Parcela'
+              });
+            });
+
+            setModalPropostaAberto(false);
+            toast({ title: "Proposta salva!", description: "Entrada e parcelas geradas." });
+          }}
+        />
+      )}
+
+      <BottomNav active={activeSection} onNavigate={setActiveSection} onMenuOpen={() => setMenuOpen(true)} permissions={permissions} />
+      <SideMenu open={menuOpen} onOpenChange={setMenuOpen} active={activeSection} onNavigate={setActiveSection} permissions={permissions} userEmail={user?.email || ''} onLogout={async () => { await signOut(); navigate('/login'); }} />
     </div>
   );
 };

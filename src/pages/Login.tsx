@@ -27,32 +27,74 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(155,55%,8%)] via-[hsl(153,60%,14%)] to-[hsl(155,45%,20%)] flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-10">
-          <img src={logo} alt="EcomindsX Logo" className="w-28 h-auto mx-auto mb-4 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]" />
-          <h1 className="text-4xl font-black text-white tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">ZENTRA-X</h1>
-          <p className="text-sm text-emerald-400/80 mt-2 font-medium tracking-[0.2em] uppercase">Gestão Inteligente</p>
+    // min-h-svh garante que o container ocupe a tela exata sem causar scroll em mobiles
+    <div className="min-h-svh bg-gradient-to-br from-[hsl(155,55%,8%)] via-[hsl(153,60%,14%)] to-[hsl(155,45%,20%)] flex items-center justify-center p-4 sm:p-6 font-sans">
+      <div className="w-full max-w-sm flex flex-col justify-center">
+        {/* mb-6 reduzido para economizar espaço vertical */}
+        <div className="text-center mb-6">
+          <img 
+            src={logo} 
+            alt="EcomindsX Logo" 
+            className="w-20 sm:w-24 h-auto mx-auto mb-3 drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]" 
+          />
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tighter uppercase drop-shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+            ZENTRA-X
+          </h1>
+          <p className="text-[10px] sm:text-xs text-emerald-400/80 mt-1 font-medium tracking-[0.2em] uppercase">
+            Gestão Inteligente
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="bg-emerald-950/20 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-9 space-y-6">
-          <h2 className="text-xl font-extrabold text-white text-center mb-8 tracking-tight">Acesso Restrito</h2>
+        {/* Padding interno reduzido de p-9 para p-6 em telas menores */}
+        <form 
+          onSubmit={handleSubmit} 
+          className="bg-emerald-950/20 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 sm:p-8 space-y-4 sm:space-y-6"
+        >
+          <h2 className="text-lg font-extrabold text-white text-center mb-4 tracking-tight uppercase">
+            Acesso Restrito
+          </h2>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest ml-1">Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" required className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20" />
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">
+              Email
+            </label>
+            <input 
+              type="email" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              placeholder="seu@email.com" 
+              required 
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20" 
+            />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-emerald-500 uppercase tracking-widest ml-1">Senha</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required minLength={6} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-4 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20" />
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest ml-1">
+              Senha
+            </label>
+            <input 
+              type="password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              placeholder="••••••••" 
+              required 
+              minLength={6} 
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all placeholder:text-white/20" 
+            />
           </div>
 
-          <Button type="submit" className="w-full py-7 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 text-base" disabled={loading}>
+          {/* py-5 para um equilíbrio melhor entre design e espaço */}
+          <Button 
+            type="submit" 
+            className="w-full py-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-2xl shadow-lg shadow-emerald-900/30 transition-all active:scale-95 text-sm sm:text-base" 
+            disabled={loading}
+          >
             {loading ? 'Autenticando...' : <><LogIn className="w-5 h-5 mr-2" /> ENTRAR NO SISTEMA</>}
           </Button>
 
-          <p className="text-[10px] text-center text-white/30 uppercase tracking-[0.3em] pt-4">Powered by EcomindsX</p>
+          <p className="text-[9px] text-center text-white/30 uppercase tracking-[0.3em] pt-2">
+            Powered by EcomindsX
+          </p>
         </form>
       </div>
     </div>

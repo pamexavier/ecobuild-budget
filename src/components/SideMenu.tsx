@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom';
 import {
   PieChart, BarChart3, Upload, TrendingUp, Percent, WalletCards,
   Users, Building2, LogOut, Shield
@@ -8,6 +7,9 @@ import {
 } from '@/components/ui/sheet';
 import { UserPermissions } from '@/hooks/useAuth';
 import logo from '@/assets/logo.png';
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 interface SideMenuProps {
   open: boolean;
@@ -18,7 +20,7 @@ interface SideMenuProps {
   isSuperAdmin: boolean;
   tenantNome: string | null;
   userEmail: string;
-  onLogout: () => void;
+  onLogout: () => void; // Mantido para compatibilidade, mas usaremos a lógica interna
 }
 
 const menuSections = [
@@ -42,13 +44,34 @@ const menuSections = [
 
 export function SideMenu({
   open, onOpenChange, active, onNavigate,
-  permissions, isSuperAdmin, tenantNome, userEmail, onLogout
+  permissions, isSuperAdmin, tenantNome, userEmail
 }: SideMenuProps) {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // Declarado apenas uma vez agora
+  const { toast } = useToast();
 
   const handleNav = (id: string) => {
     onNavigate(id);
     onOpenChange(false);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast({
+        title: "Sessão encerrada",
+        description: "Voltará em breve!",
+      });
+      
+      navigate("/login");
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: error.message,
+      });
+    }
   };
 
   return (
@@ -120,7 +143,7 @@ export function SideMenu({
 
         <div className="p-4 border-t border-white/[0.06]">
           <button
-            onClick={onLogout}
+            onClick={handleLogout} // Alterado de onLogout para handleLogout
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all active:scale-[0.98]"
           >
             <LogOut className="w-4 h-4" />

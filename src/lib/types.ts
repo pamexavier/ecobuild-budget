@@ -23,13 +23,13 @@ export const TIPO_CONTRATO_LABELS: Record<TipoContrato, string> = {
 export interface Obra {
   id: string;
   nome: string;
+  endereco?: string; // Adicionado para suportar endereços diferentes
   orcamentoLimite: number;
   gastoAtual: number;
   categorias: OrcamentoCategoria[];
   clienteId?: string;
   clienteNome?: string;
   tipoContrato: TipoContrato;
-  // ADICIONADO:
   valorContratoOriginal: number;
   valorTotalAditivos: number;
   valorTotalRecebido: number;

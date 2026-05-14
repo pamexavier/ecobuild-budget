@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react';
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarIcon, Building2, User, Printer, Calculator } from 'lucide-react';
+import { CalendarIcon, Building2, User, Printer } from 'lucide-react';
 import { Lancamento, Obra, Profissional } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 
 interface Props {
   lancamentos: Lancamento[];
@@ -23,7 +22,7 @@ type LancamentoResolvido = Lancamento & {
 
 type DiaAgrupado = {
   totalDia: number;
-  lancamentos: Record<string, LancamentoResolvido>; // Alterado para Record para facilitar agrupamento
+  lancamentos: Record<string, LancamentoResolvido>;
 };
 
 type ObraAgrupada = {
@@ -41,7 +40,8 @@ const parseDataLocal = (data: string) => {
   return new Date(ano, (mes || 1) - 1, dia || 1);
 };
 
-export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
+// BLINDAGEM ADICIONADA AQUI: lancamentos = [], obras = [], profissionais = []
+export function ResumoSemana({ lancamentos = [], obras = [], profissionais = [] }: Props) {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(subDays(new Date(), 7));
   const [dateTo, setDateTo] = useState<Date | undefined>(new Date());
 
@@ -78,7 +78,7 @@ export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
       const obraId = lancamento.obraId || 'sem-obra';
       const data = lancamento.data;
       
-      // Chave para agrupar linhas idênticas (Mesmo profissional e mesmo serviço no mesmo dia/obra)
+      // Chave para agrupar linhas idênticas
       const chaveAgrupamento = `${lancamento.profissionalId}-${lancamento.servicoResolvido}`;
 
       if (!obrasAgrupadas[obraId]) {
@@ -96,20 +96,29 @@ export function ResumoSemana({ lancamentos, obras, profissionais }: Props) {
 
       const diaAtual = obrasAgrupadas[obraId].dias[data];
 
-      // LÓGICA DE AGRUPAMENTO DE LINHA
+      // LÓGICA CORRIGIDA: Adiantamento subtrai do valor total
+      const isAdiantamento = lancamento.servicoResolvido === 'Adiantamento' || lancamento.tipo === 'adiantamento';
+      const valorCalculo = isAdiantamento ? -Math.abs(lancamento.valor) : Math.abs(lancamento.valor);
+
       if (diaAtual.lancamentos[chaveAgrupamento]) {
-        diaAtual.lancamentos[chaveAgrupamento].valor += lancamento.valor;
+        diaAtual.lancamentos[chaveAgrupamento].valor += valorCalculo;
       } else {
-        diaAtual.lancamentos[chaveAgrupamento] = { ...lancamento };
+        // Salva com o valor já ajustado (negativo se for adiantamento)
+        diaAtual.lancamentos[chaveAgrupamento] = { ...lancamento, valor: valorCalculo };
       }
 
-      obrasAgrupadas[obraId].totalObra += lancamento.valor;
-      diaAtual.totalDia += lancamento.valor;
-      totaisPorDia[data] = (totaisPorDia[data] || 0) + lancamento.valor;
+      obrasAgrupadas[obraId].totalObra += valorCalculo;
+      diaAtual.totalDia += valorCalculo;
+      totaisPorDia[data] = (totaisPorDia[data] || 0) + valorCalculo;
     });
 
     const obrasOrdenadas = Object.values(obrasAgrupadas).sort((a, b) => a.nome.localeCompare(b.nome));
-    const totalGeral = filtrados.reduce((total, lancamento) => total + lancamento.valor, 0);
+    
+    // Total Geral com o abatimento dos adiantamentos
+    const totalGeral = filtrados.reduce((total, lcto) => {
+      const isAd = lcto.servicoResolvido === 'Adiantamento' || lcto.tipo === 'adiantamento';
+      return total + (isAd ? -Math.abs(lcto.valor) : Math.abs(lcto.valor));
+    }, 0);
 
     return { obras: obrasOrdenadas, totaisPorDia, totalGeral, totalLancamentos: filtrados.length };
   }, [lancamentos, obras, profissionais, dateFrom, dateTo]);
