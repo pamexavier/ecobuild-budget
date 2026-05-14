@@ -1,3 +1,8 @@
+
+html {
+  font-size: 14px; /* O padrão é 16px. Isso reduzirá a escala total em cerca de 12% */
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
@@ -90,4 +95,29 @@ body::before {
   .glass-strong {
     @apply bg-card/80 backdrop-blur-2xl border border-white/[0.08] shadow-2xl;
   }
+}
+/* Estilização da barra de rolagem do SideMenu */
+.scrollbar-menu {
+  /* Garante que o Firefox também veja a barra verde */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 185, 129, 0.4) transparent;
+}
+
+/* Chrome, Edge e Safari */
+.scrollbar-menu::-webkit-scrollbar {
+  width: 6px !important;
+  display: block !important; /* Força a exibição se estiver oculta */
+}
+
+.scrollbar-menu::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.scrollbar-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(16, 185, 129, 0.4) !important; 
+  border-radius: 10px !important;
+}
+
+.scrollbar-menu::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(16, 185, 129, 0.7) !important;
 }

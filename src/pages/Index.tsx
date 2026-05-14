@@ -27,6 +27,7 @@ import { UploadContratoObra } from '@/components/UploadContratoObra';
 import { ServicosContratoChecklist } from '@/components/ServicosContratoChecklist';
 import { MateriaisNotaFiscal } from '@/components/MateriaisNotaFiscal';
 
+
 const TabsObra = ({ active, onChange }: { active: string, onChange: (id: string) => void }) => (
   <div className="flex bg-white/[0.03] p-1.5 rounded-2xl mb-8 border border-white/5 overflow-x-auto">
     {[
@@ -264,9 +265,9 @@ const Index = () => {
         )}
 
         {activeSection === 'importar' && (
-          <section className="pt-4 animate-in fade-in">
-             <div className="glass rounded-3xl p-8 border border-white/10">
-                <ImportarPlanilha onImport={addMultipleLancamentos} />
+           <section className="pt-4 animate-in fade-in">
+             <div className="glass rounded-3xl p-5 border border-white/10">
+               <ImportarPlanilha onImport={addMultipleLancamentos} />
              </div>
           </section>
         )}
@@ -292,7 +293,7 @@ const Index = () => {
       {obraDetalheSelecionada && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 backdrop-blur-xl animate-in fade-in">
           <div className="bg-[#0a0a0a] border border-white/10 rounded-[40px] max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            <div className="p-8 border-b border-white/5 flex items-start justify-between">
+            <div className="p-5 border-b border-white/5 flex items-start justify-between">
               <div>
                 <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{obraDetalheSelecionada?.nome || 'Sem Nome'}</h2>
                 <p className="text-sm text-zinc-500 font-bold flex items-center gap-2"><Users2 size={14} className="text-emerald-500" /> {obraDetalheSelecionada?.clienteNome || 'Cliente não definido'}</p>
@@ -300,7 +301,7 @@ const Index = () => {
               <button onClick={() => setObraDetalheSelecionada(null)} className="bg-white/5 p-3 rounded-full text-zinc-500 hover:text-white transition-all"><X className="w-6 h-6" /></button>
             </div>
 
-            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="p-5 flex-1 overflow-y-auto custom-scrollbar">
               <TabsObra active={activeTabObra} onChange={setActiveTabObra} />
 
               {/* TAB: CONTRATO */}
@@ -420,7 +421,7 @@ const Index = () => {
               )}
             </div>
 
-            <div className="p-8 border-t border-white/5 bg-zinc-950/50 flex gap-3">
+            <div className="p-5 border-t border-white/5 bg-zinc-950/50 flex gap-3">
                <button className="flex-1 py-4 bg-white/5 text-zinc-400 rounded-2xl text-[10px] font-black uppercase">Exportar PDF</button>
                <button onClick={() => setObraDetalheSelecionada(null)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase">Fechar Central</button>
             </div>

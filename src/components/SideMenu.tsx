@@ -74,11 +74,13 @@ export function SideMenu({
     }
   };
 
-  return (
+    return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-[280px] glass-strong p-0 border-r border-white/[0.06]">
+      {/* Adicionado: flex flex-col h-full */}
+        <SheetContent side="left" className="w-[280px] glass-strong p-0 border-r border-white/[0.06] flex flex-col h-full max-h-screen">
         <SheetHeader className="p-5 pb-4 border-b border-white/[0.06]">
           <div className="flex items-center gap-3">
+            <div className="flex-1 overflow-y-auto py-3 scrollbar-menu"></div>
             <img src={logo} alt="ZENTRA-X" className="w-9 h-9 rounded-xl object-contain" />
             <div>
               <SheetTitle className="text-base font-extrabold tracking-tight text-foreground">ZENTRA-X</SheetTitle>
@@ -98,18 +100,19 @@ export function SideMenu({
                   const Icon = item.icon;
                   const isActive = active === item.id;
                   return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNav(item.id)}
-                      className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-all ${
-                        isActive
-                          ? 'text-primary bg-primary/10 border-l-2 border-primary'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.03] border-l-2 border-transparent'
-                      }`}
-                    >
-                      <Icon className="w-4.5 h-4.5" />
-                      {item.label}
-                    </button>
+                    // Substitua o bloco do botão por este:
+<button
+  key={item.id}
+  onClick={() => handleNav(item.id)}
+  className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-all ${
+    isActive
+      ? 'text-primary bg-primary/10 border-l-2 border-primary'
+      : 'text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent'
+  }`}
+>
+  <Icon className="w-4.5 h-4.5" />
+  {item.label}
+</button>
                   );
                 })}
               </div>
@@ -120,24 +123,24 @@ export function SideMenu({
             <p className="px-5 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Administração</p>
 
             {permissions.podeGerenciarAcessos && (
-              <button
-                onClick={() => { navigate('/gerenciar-acessos'); onOpenChange(false); }}
-                className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.03] border-l-2 border-transparent transition-all"
-              >
-                <Users className="w-4.5 h-4.5" />
-                Gestão de Equipe
-              </button>
-            )}
+  <button
+    onClick={() => { navigate('/gerenciar-acessos'); onOpenChange(false); }}
+    className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent transition-all"
+  >
+    <Users className="w-4.5 h-4.5" />
+    Gestão de Equipe
+  </button>
+)}
 
-            {isSuperAdmin && (
-              <button
-                onClick={() => { navigate('/super-admin'); onOpenChange(false); }}
-                className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.03] border-l-2 border-transparent transition-all"
-              >
-                <Shield className="w-4.5 h-4.5" />
-                Super Admin
-              </button>
-            )}
+{isSuperAdmin && (
+  <button
+    onClick={() => { navigate('/super-admin'); onOpenChange(false); }}
+    className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent transition-all"
+  >
+    <Shield className="w-4.5 h-4.5" />
+    Super Admin
+  </button>
+)}
           </div>
         </div>
 
