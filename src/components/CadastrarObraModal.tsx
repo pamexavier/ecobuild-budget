@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { HardHat, Plus, Trash2, Layers, UserPlus } from 'lucide-react';
+import { HardHat, Plus, Trash2, Layers, UserPlus, MapPin } from 'lucide-react';
 import { Obra, OrcamentoCategoria, CATEGORIAS_ORCAMENTO_SUGESTOES, Cliente, TipoContrato, TIPO_CONTRATO_LABELS } from '@/lib/types';
 import { CadastrarClienteModal } from './CadastrarClienteModal';
 
@@ -25,6 +25,7 @@ const formatarNome = (nome: string) => {
 export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, defaultNome }: Props) {
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState(defaultNome || '');
+  const [endereco, setEndereco] = useState('');
   const [clienteId, setClienteId] = useState('');
   const [tipoContrato, setTipoContrato] = useState<TipoContrato>('obra');
   const [categorias, setCategorias] = useState<OrcamentoCategoria[]>([]);
@@ -67,6 +68,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
 
     onAdd({
       nome,
+      endereco,
       orcamentoLimite: totalOrcamento,
       categorias,
       clienteId: clienteId || undefined,
@@ -74,6 +76,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
     });
 
     setNome('');
+    setEndereco('');
     setClienteId('');
     setTipoContrato('obra');
     setCategorias([]);
@@ -118,6 +121,20 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
               value={nome} 
               onChange={e => setNome(e.target.value)} 
               placeholder="Ex: Residencial Parque Verde" 
+              className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-black uppercase text-muted-foreground ml-1 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5" />
+              Endereço / Localização
+            </label>
+            <input 
+              type="text" 
+              value={endereco} 
+              onChange={e => setEndereco(e.target.value)} 
+              placeholder="Ex: Rua das Flores, 123 - São Paulo, SP" 
               className="w-full rounded-xl border border-input bg-background px-4 py-3 text-sm font-medium focus:ring-2 focus:ring-primary/20 outline-none transition-all" 
             />
           </div>

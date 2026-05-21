@@ -11,7 +11,7 @@ interface BottomNavProps {
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
   { id: 'lancamento', label: 'Lançar', icon: FileText, permKey: 'podeLancarDespesa' as keyof UserPermissions },
-  { id: 'clientes', label: 'Obras', icon: HardHat, permKey: 'podeCriarObra' as keyof UserPermissions },
+  { id: 'obras', label: 'Obras', icon: HardHat, permKey: 'podeCriarObra' as keyof UserPermissions },
 ];
 
 export function BottomNav({ active, onNavigate, onMenuOpen, permissions }: BottomNavProps) {

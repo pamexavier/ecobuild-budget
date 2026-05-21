@@ -1,15 +1,14 @@
 import {
-  PieChart, BarChart3, Upload, TrendingUp, Percent, WalletCards,
-  Users, Building2, LogOut, Shield
+  Home, PieChart, BarChart3, Upload, TrendingUp, Percent, WalletCards,
+  Users, Building2, LogOut, Shield, FileText, Package, LogIn, Zap
 } from 'lucide-react';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle
 } from '@/components/ui/sheet';
 import { UserPermissions } from '@/hooks/useAuth';
 import logo from '@/assets/logo.png';
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 interface SideMenuProps {
   open: boolean;
@@ -17,141 +16,216 @@ interface SideMenuProps {
   active: string;
   onNavigate: (section: string) => void;
   permissions: UserPermissions;
-  isSuperAdmin: boolean;
-  tenantNome: string | null;
   userEmail: string;
-  onLogout: () => void; // Mantido para compatibilidade, mas usaremos a lógica interna
+  onLogout: () => void;
 }
 
-const menuSections = [
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ size: number; className?: string }>;
+  permKey?: keyof UserPermissions;
+  external?: boolean;
+}
+
+interface MenuSection {
+  title: string;
+  icon?: string;
+  items: MenuItem[];
+}
+
+const menuSections: MenuSection[] = [
+  {
+    title: 'Principal',
+    icon: '🏠',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'lancamento', label: 'Lançamentos', icon: Zap },
+      { id: 'clientes', label: 'Clientes', icon: Users },
+    ]
+  },
+  {
+    title: 'Gestão de Obras',
+    icon: '🏗️',
+    items: [
+      { id: 'obras', label: 'Obras', icon: Building2 },
+      { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+      { id: 'relatoriosObra', label: 'Relatórios', icon: TrendingUp, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
+    ]
+  },
   {
     title: 'Financeiro',
+    icon: '💰',
     items: [
-      { id: 'orcamento', label: 'Orçamento', icon: PieChart, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
-      { id: 'relatoriosObra', label: 'Relatórios de Obra', icon: TrendingUp, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
-      { id: 'relatorios', label: 'Resumo Semanal', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
       { id: 'contasReceber', label: 'Contas a Receber', icon: WalletCards, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
       { id: 'comissoes', label: 'Comissões', icon: Percent, permKey: 'podeGerenciarAcessos' as keyof UserPermissions },
+      { id: 'relatorios', label: 'Resumo Semanal', icon: BarChart3, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
     ]
   },
   {
     title: 'Dados',
+    icon: '📊',
     items: [
       { id: 'importar', label: 'Importar Planilha', icon: Upload, permKey: 'podeEditarOrcamento' as keyof UserPermissions },
     ]
   },
 ];
 
-export function SideMenu({
-  open, onOpenChange, active, onNavigate,
-  permissions, isSuperAdmin, tenantNome, userEmail
-}: SideMenuProps) {
-  const navigate = useNavigate(); // Declarado apenas uma vez agora
-  const { toast } = useToast();
+const adminSections: MenuItem[] = [
+  { id: 'acessos', label: 'Gestão de Equipe', icon: Users, permKey: 'podeGerenciarAcessos' as keyof UserPermissions },
+  { id: 'super-admin', label: 'Super Admin', icon: Shield, external: true },
+];
 
-  const handleNav = (id: string) => {
+export function SideMenu({
+  open,
+  onOpenChange,
+  active,
+  onNavigate,
+  permissions,
+  userEmail,
+  onLogout
+}: SideMenuProps) {
+
+  const handleNavigation = (id: string, external?: boolean) => {
     onNavigate(id);
     onOpenChange(false);
   };
 
-  const handleLogout = async () => {
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      toast({
-        title: "Sessão encerrada",
-        description: "Voltará em breve!",
-      });
-      
-      navigate("/login");
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro ao sair",
-        description: error.message,
-      });
-    }
+  const handleLogoutClick = async () => {
+    await onLogout();
+    onOpenChange(false);
   };
 
-    return (
+  const isSuperAdmin = permissions?.isSuperAdmin || false;
+
+  return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* Adicionado: flex flex-col h-full */}
-        <SheetContent side="left" className="w-[280px] glass-strong p-0 border-r border-white/[0.06] flex flex-col h-full max-h-screen">
-        <SheetHeader className="p-5 pb-4 border-b border-white/[0.06]">
+      <SheetContent
+        side="left"
+        className="w-[300px] glass-strong p-0 border-r border-white/5 flex flex-col h-full bg-gradient-to-b from-white/[0.02] to-white/[0.01] backdrop-blur-xl"
+      >
+        {/* HEADER */}
+        <SheetHeader className="p-6 border-b border-white/5 bg-gradient-to-r from-emerald-500/5 to-purple-500/5">
           <div className="flex items-center gap-3">
-            <div className="flex-1 overflow-y-auto py-3 scrollbar-menu"></div>
-            <img src={logo} alt="ZENTRA-X" className="w-9 h-9 rounded-xl object-contain" />
-            <div>
-              <SheetTitle className="text-base font-extrabold tracking-tight text-foreground">ZENTRA-X</SheetTitle>
-              <p className="text-[10px] text-muted-foreground mt-0.5">{tenantNome || userEmail}</p>
+            <div className="relative">
+              <img src={logo} alt="ZENTRA-X" className="w-10 h-10 rounded-xl object-contain ring-1 ring-emerald-500/20" />
+              <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <SheetTitle className="text-base font-black tracking-tighter bg-gradient-to-r from-emerald-400 to-emerald-300 bg-clip-text text-transparent">
+                ZENTRA-X
+              </SheetTitle>
+              <p className="text-[10px] text-zinc-400 font-semibold mt-1 truncate">{userEmail}</p>
             </div>
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto py-3">
-          {menuSections.map(section => {
-            const visibleItems = section.items.filter(i => permissions[i.permKey]);
+        {/* NAVIGATION */}
+        <div className="flex-1 overflow-y-auto py-4 space-y-2 px-3">
+          {menuSections.map((section) => {
+            const visibleItems = section.items.filter(
+              (item) => !item.permKey || permissions[item.permKey]
+            );
+
             if (visibleItems.length === 0) return null;
+
             return (
-              <div key={section.title} className="mb-2">
-                <p className="px-5 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">{section.title}</p>
-                {visibleItems.map(item => {
-                  const Icon = item.icon;
-                  const isActive = active === item.id;
-                  return (
-                    // Substitua o bloco do botão por este:
-<button
-  key={item.id}
-  onClick={() => handleNav(item.id)}
-  className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium transition-all ${
-    isActive
-      ? 'text-primary bg-primary/10 border-l-2 border-primary'
-      : 'text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent'
-  }`}
->
-  <Icon className="w-4.5 h-4.5" />
-  {item.label}
-</button>
-                  );
-                })}
+              <div key={section.title} className="space-y-1.5">
+                {/* SECTION HEADER */}
+                <div className="px-3 py-2.5">
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                    <span>{section.icon}</span>
+                    {section.title}
+                  </p>
+                </div>
+
+                {/* SECTION ITEMS */}
+                <div className="space-y-1">
+                  {visibleItems.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = active === item.id;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigation(item.id, item.external)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group ${
+                          isActive
+                            ? 'bg-gradient-to-r from-emerald-500/20 to-emerald-500/10 text-emerald-300 border-l-2 border-emerald-500'
+                            : 'text-zinc-400 hover:text-emerald-400 border-l-2 border-transparent hover:bg-white/5'
+                        }`}
+                      >
+                        <Icon size={18} className="flex-shrink-0" />
+                        <span className="text-left flex-1 truncate">{item.label}</span>
+                        {isActive && (
+                          <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
 
-          <div className="border-t border-white/[0.06] mt-3 pt-3">
-            <p className="px-5 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">Administração</p>
+          {/* ADMIN SECTION */}
+          {(permissions.podeGerenciarAcessos || isSuperAdmin) && (
+            <>
+              <Separator className="my-3 bg-white/5" />
+              
+              <div className="space-y-1.5">
+                <div className="px-3 py-2.5">
+                  <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest flex items-center gap-2">
+                    <span>⚙️</span>
+                    Administração
+                  </p>
+                </div>
 
-            {permissions.podeGerenciarAcessos && (
-  <button
-    onClick={() => { navigate('/gerenciar-acessos'); onOpenChange(false); }}
-    className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent transition-all"
-  >
-    <Users className="w-4.5 h-4.5" />
-    Gestão de Equipe
-  </button>
-)}
+                <div className="space-y-1">
+                  {adminSections.map((item) => {
+                    if (item.permKey && !permissions[item.permKey]) return null;
+                    if (item.id === 'super-admin' && !isSuperAdmin) return null;
 
-{isSuperAdmin && (
-  <button
-    onClick={() => { navigate('/super-admin'); onOpenChange(false); }}
-    className="w-full flex items-center gap-3 px-5 py-3.5 text-sm font-medium text-muted-foreground hover:text-emerald-400 hover:bg-emerald-500/10 border-l-2 border-transparent transition-all"
-  >
-    <Shield className="w-4.5 h-4.5" />
-    Super Admin
-  </button>
-)}
-          </div>
+                    const Icon = item.icon;
+                    const isActive = active === item.id;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleNavigation(item.id, item.external)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                          isActive
+                            ? 'bg-gradient-to-r from-purple-500/20 to-purple-500/10 text-purple-300 border-l-2 border-purple-500'
+                            : 'text-zinc-400 hover:text-purple-400 border-l-2 border-transparent hover:bg-white/5'
+                        }`}
+                      >
+                        <Icon size={18} className="flex-shrink-0" />
+                        <span className="text-left flex-1 truncate">{item.label}</span>
+                        {isActive && (
+                          <div className="w-1.5 h-1.5 bg-purple-400 rounded-full animate-pulse flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="p-4 border-t border-white/[0.06]">
-          <button
-            onClick={handleLogout} // Alterado de onLogout para handleLogout
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all active:scale-[0.98]"
+        {/* FOOTER */}
+        <div className="p-4 border-t border-white/5 space-y-2 bg-gradient-to-t from-white/[0.02] to-transparent">
+          <p className="text-[10px] font-semibold text-zinc-600 px-2">
+            📧 {userEmail.split('@')[0]}
+          </p>
+          <Button
+            onClick={handleLogoutClick}
+            variant="destructive"
+            className="w-full gap-2 rounded-xl font-semibold"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut size={16} />
             Sair do Sistema
-          </button>
+          </Button>
         </div>
       </SheetContent>
     </Sheet>
