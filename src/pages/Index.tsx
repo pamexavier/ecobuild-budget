@@ -437,15 +437,15 @@ const Index = () => {
           onClose={() => setModalPropostaAberto(false)}
           onSave={(proposta) => {
             // Lançar Entrada
-            addConta({
-              obraId: obraDetalheSelecionada.id,
-              descricao: "Entrada Contrato",
-              valor: proposta.entrada.valor,
-              dataVencimento: new Date(),
-              status: 'aberto',
-              tipo: 'Entrada'
-            });
-
+            // Lançar Entrada
+addConta({
+  obraId: obraDetalheSelecionada.id,
+  descricao: "Entrada Contrato",
+  valor: proposta.entrada.valor,
+  dataVencimento: new Date().toISOString().split('T')[0], // <-- CORREÇÃO AQUI
+  status: 'aberto',
+  tipo: 'Entrada'
+});
             // Lançar Parcelas
             proposta.parcelas.forEach(p => {
               addConta({
