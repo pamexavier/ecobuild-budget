@@ -1,4 +1,3 @@
-
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "ecobuild-budget",
@@ -7,6 +6,7 @@
     "enabled": true
   },
   "assets": {
+    "directory": "dist",
     "not_found_handling": "single-page-application"
   },
   "compatibility_flags": [
