@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppStore } from '@/lib/store';
 import { BottomNav } from '@/components/BottomNav';
@@ -29,8 +30,14 @@ const Financeiro = () => {
   } = useAppStore(tenantId) || {};
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('receber');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (location.state && location.state.tab) {
+      return location.state.tab;
+    }
+    return 'receber';
+  });
   const [modalContaPagarAberto, setModalContaPagarAberto] = useState(false);
   const [obraParaContaPagar, setObraParaContaPagar] = useState<any>(null);
   const [formContaPagar, setFormContaPagar] = useState({
@@ -44,7 +51,7 @@ const Financeiro = () => {
     navigate('/login');
   };
 
-  const contasReceber = (contas || []).filter(c => c.tipo === 'Entrada' || c.tipo === 'Parcela');
+  const contasReceber = (contas || []).filter(c => c.tipo !== 'Despesa');
   const contasPagar = (contas || []).filter(c => c.tipo === 'Despesa');
 
   const totalReceber = contasReceber.reduce((sum, c) => c.status === 'aberto' ? sum + c.valor : sum, 0);
@@ -147,8 +154,8 @@ const Financeiro = () => {
             </div>
           </div>
 
-          {/* TABS */}
-          <div className="flex bg-white/[0.02] p-2 rounded-2xl mb-8 border border-white/10 overflow-x-auto gap-1 backdrop-blur-sm">
+          {/* TABS CORRIGIDAS - TEXTO APARECE NO CELULAR */}
+          <div className="flex bg-white/[0.02] p-2 rounded-2xl mb-8 border border-white/10 overflow-x-auto custom-scrollbar gap-1 backdrop-blur-sm">
             {[
               { id: 'receber', label: 'A Receber', icon: '📥', color: 'emerald' },
               { id: 'pagar', label: 'A Pagar', icon: '📤', color: 'orange' },
@@ -164,7 +171,7 @@ const Financeiro = () => {
                 }`}
               >
                 <span>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="inline">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -365,16 +372,18 @@ const Financeiro = () => {
         <BottomNav
           active="contasReceber"
           onNavigate={(section) => {
-            const routes: Record<string, string> = {
+            const routes: Record<string, string | { path: string; state?: any }> = {
               'dashboard': '/',
               'lancamento': '/lancamentos',
               'clientes': '/clientes',
               'obras': '/obras',
               'relatorios': '/financeiro',
               'contasReceber': '/financeiro',
-              'comissoes': '/financeiro',
+              'comissoes': { path: '/financeiro', state: { tab: 'comissoes' } }
             };
-            if (routes[section]) navigate(routes[section]);
+            const route = routes[section];
+            if (typeof route === 'string') navigate(route);
+            else if (route) navigate(route.path, { state: route.state });
           }}
           onMenuOpen={() => setMenuOpen(true)}
           permissions={permissions}

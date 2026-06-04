@@ -18,6 +18,7 @@ import Projetos from "@/pages/Projetos.tsx";
 import Clientes from "@/pages/Clientes.tsx";
 import Financeiro from "@/pages/Financeiro.tsx";
 import Adm from "@/pages/Adm.tsx";
+import ObraDetalhePage from '@/pages/ObraDetalhePage';
 
 // Legacy (será descontinuado)
 import Index from "./pages/Index.tsx";
@@ -75,13 +76,25 @@ const App = () => (
               }
             />
 
-            {/* Obras */}
+            {/* Obras — Lista Principal */}
             <Route
-              path="/obras/*"
+              path="/obras"
               element={
                 <ProtectedRoute>
                   <TenantGate>
                     <Obras />
+                  </TenantGate>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Obra Detalhe — Rota Dinâmica (COLE EXATAMENTE ASSIM) */}
+            <Route
+              path="/obras/:id"
+              element={
+                <ProtectedRoute>
+                  <TenantGate>
+                    <ObraDetalhePage />
                   </TenantGate>
                 </ProtectedRoute>
               }

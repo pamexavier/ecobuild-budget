@@ -7,15 +7,11 @@ import {
   Trash2, 
   X, 
   Tag, 
-  AlertCircle 
+  AlertCircle,
+  UserCheck
 } from 'lucide-react';
 import { ContaAReceber, Obra } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-
-// --- TIPAGEM E AUXILIARES ---
-
-type StatusFiltro = 'todos' | ContaAReceber['status'];
-type TipoFiltro = 'todos' | string;
 
 const moeda = (valor: number) =>
   valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -38,21 +34,25 @@ const statusClass: Record<ContaAReceber['status'], string> = {
   atrasado: 'text-red-400 bg-red-500/10 border-red-500/20',
 };
 
+const statusLabel: Record<ContaAReceber['status'], string> = {
+  aberto: 'A Receber',
+  pago: 'Recebido',
+  atrasado: 'Atrasado'
+};
+
 function calcularResumo(contas: ContaAReceber[]) {
   return (contas || []).reduce(
     (acc, conta) => {
-      const status = statusEfetivo(conta);
+      const status = statusEfetivo(acc as any || conta);
       acc.total += conta.valor;
-      if (status === 'pago') acc.recebidas += conta.valor;
-      if (status === 'aberto') acc.aReceber += conta.valor;
-      if (status === 'atrasado') acc.atrasadas += conta.valor;
+      if (conta.status === 'pago') acc.recebidas += conta.valor;
+      else if (new Date(conta.dataVencimento) < new Date()) acc.atrasadas += conta.valor;
+      else acc.aReceber += conta.valor;
       return acc;
     },
     { total: 0, aReceber: 0, recebidas: 0, atrasadas: 0 },
   );
 }
-
-// --- SUB-COMPONENTES DE UI ---
 
 function ResumoMini({ label, valor, className }: { label: string; valor: number; className?: string }) {
   return (
@@ -62,8 +62,6 @@ function ResumoMini({ label, valor, className }: { label: string; valor: number;
     </div>
   );
 }
-
-// --- COMPONENTES PRINCIPAIS ---
 
 export function CardResumoFinanceiro({ obraId, contas = [], onAdicionarConta }: { obraId: string; contas: ContaAReceber[]; onAdicionarConta: () => void }) {
   const contasObra = useMemo(() => contas.filter(c => c.obraId === obraId), [contas, obraId]);
@@ -101,7 +99,7 @@ export function CardResumoFinanceiro({ obraId, contas = [], onAdicionarConta }: 
                 </div>
                 <div className="text-right">
                   <p className="font-black text-primary">{moeda(conta.valor)}</p>
-                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${statusClass[status]}`}>{status}</span>
+                  <span className={`rounded-full border px-2 py-0.5 text-[9px] font-black uppercase ${statusClass[status]}`}>{statusLabel[status]}</span>
                 </div>
               </div>
             );
@@ -192,7 +190,6 @@ export function GerenciadorContas({
 
   const obraPorId = useMemo(() => new Map(obras.map(o => [o.id, o.nome])), [obras]);
 
-  // Extrair tipos únicos para o filtro
   const tiposDisponiveis = useMemo(() => {
     const ts = new Set(contas.map(c => c.tipo).filter(Boolean));
     return Array.from(ts).sort();
@@ -236,9 +233,9 @@ export function GerenciadorContas({
 
         <select value={statusFiltro} onChange={e => setStatusFiltro(e.target.value as StatusFiltro)} className="rounded-lg border border-white/10 bg-background px-3 py-2 text-sm outline-none focus:border-primary">
           <option value="todos">Todos os status</option>
-          <option value="aberto">Aberto</option>
-          <option value="pago">Pago</option>
-          <option value="atrasado">Atrasado</option>
+          <option value="aberto">A Receber</option>
+          <option value="pago">Recebidos</option>
+          <option value="atrasado">Atrasados</option>
         </select>
 
         <Button type="button" className="gap-2" onClick={abrirNovo}>
@@ -253,7 +250,7 @@ export function GerenciadorContas({
               <th className="px-4 py-3 text-left">Descrição</th>
               <th className="px-4 py-3 text-left">Tipo</th>
               <th className="px-4 py-3 text-left">Obra</th>
-              <th className="px-4 py-3 text-left">Vencimento</th>
+              <th className="px-4 py-3 text-left">Data</th>
               <th className="px-4 py-3 text-left">Status</th>
               <th className="px-4 py-3 text-right">Valor</th>
               <th className="px-4 py-3 text-right">Ações</th>
@@ -272,18 +269,27 @@ export function GerenciadorContas({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{obraPorId.get(conta.obraId) || '-'}</td>
-                  <td className="px-4 py-3">{formatarData(conta.dataVencimento)}</td>
+                  <td className="px-4 py-3">
+                    {status === 'pago' && conta.dataPagamento ? (
+                      <div className="flex flex-col">
+                        <span className="text-emerald-400 font-bold text-[11px]">Recebido em {formatarData(conta.dataPagamento)}</span>
+                        <span className="text-zinc-500 text-[9px]">Venc: {formatarData(conta.dataVencimento)}</span>
+                      </div>
+                    ) : (
+                      <span>{formatarData(conta.dataVencimento)}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${statusClass[status]}`}>
-                      {status}
+                      {statusLabel[status]}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right font-black text-primary">{moeda(conta.valor)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       {status !== 'pago' && (
-                        <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs" onClick={() => onAtualizarConta({ ...conta, status: 'pago', dataPagamento: new Date() })}>
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Pagar
+                        <Button type="button" size="sm" variant="outline" className="h-8 gap-1 text-xs text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/10 hover:text-emerald-300" onClick={() => onAtualizarConta({ ...conta, status: 'pago', dataPagamento: new Date() })}>
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Dar Baixa
                         </Button>
                       )}
                       <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setEditando(conta); setModalAberto(true); }}>Editar</Button>
@@ -316,11 +322,9 @@ export function GerenciadorContas({
   );
 }
 
-// --- COMPONENTE MODAL DE FORMULÁRIO ---
-
 interface ModalContaProps {
   obras: Obra[];
-  conta: ContaAReceber | null;
+  conta: any | null;
   obraInicialId?: string | null;
   onClose: () => void;
   onSalvar: (conta: any) => void;
@@ -349,14 +353,32 @@ function ModalConta({ obras, conta, obraInicialId, onClose, onSalvar }: ModalCon
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-black uppercase tracking-tight text-foreground">
             {conta ? 'Editar Conta' : 'Nova Conta a Receber'}
           </h2>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-white/10 transition-colors">
+          <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-white/10 transition-colors">
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {/* CORREÇÃO: INFORMAÇÕES DE CADASTRO E CRIADOR EXIBIDAS EXCLUSIVAMENTE AQUI */}
+        {conta && (
+          <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl bg-white/5 border border-white/[0.06] p-3 text-xs text-zinc-400">
+            <div>
+              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider">Criado em</p>
+              <p className="font-semibold mt-0.5 text-zinc-200">
+                {conta.dataCadastro ? new Date(conta.dataCadastro).toLocaleDateString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'Não disponível'}
+              </p>
+            </div>
+            <div>
+              <p className="text-[9px] font-black uppercase text-zinc-500 tracking-wider flex items-center gap-1"><UserCheck size={10}/> Por</p>
+              <p className="font-semibold mt-0.5 text-zinc-200 truncate" title={conta.criadoPor}>
+                {conta.criadoPor || 'Não informado'}
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

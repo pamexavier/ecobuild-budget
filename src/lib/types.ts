@@ -23,16 +23,14 @@ export const TIPO_CONTRATO_LABELS: Record<TipoContrato, string> = {
 export interface Obra {
   id: string;
   nome: string;
-  endereco?: string; // Adicionado para suportar endereços diferentes
+  endereco?: string; // ← ADICIONAR ISSO (já estava, mas mantido como opcional para retrocompatibilidade)
   orcamentoLimite: number;
   gastoAtual: number;
-  categorias: OrcamentoCategoria[];
-  clienteId?: string;
-  clienteNome?: string;
-  tipoContrato: TipoContrato;
-  valorContratoOriginal: number;
-  valorTotalAditivos: number;
-  valorTotalRecebido: number;
+  clienteId: string;
+  clienteNome: string;
+  tipoContrato: 'obra' | 'projeto';
+  status?: 'ativa' | 'inativa' | 'em_andamento' | 'aprovado' | 'transformado_obra' | string;
+  categorias?: any[];
 }
 
 export interface Profissional {
@@ -62,6 +60,7 @@ export interface Lancamento {
   data: string;
   fornecedor?: string;        // NOVO
   comprovanteUrl?: string;    // NOVO
+  contaPagarId?: string;
 }
 
 /** Tipo simplificado para inserções em massa (importação) */
@@ -86,12 +85,12 @@ export interface Comissao {
   id: string;
   parceiroId: string;
   parceiroNome?: string;
-  tipo: 'projeto' | 'obra' | 'rt';
+  tipo: 'parceiro' | 'fornecedor' | 'RT' | 'rt' | 'projeto' | 'obra' | string;
   descricao?: string;
   valorBase: number;
   percentual: number;
   valorComissao: number;
-  status: 'pendente' | 'pago';
+  status: 'pendente' | 'pago' | 'aguardando_rt' | string;
   dataLancamento: string;
   dataPagamento?: string;
   obraId?: string;
@@ -108,6 +107,39 @@ export interface ContaAReceber {
   dataPagamento?: Date;
   observacoes?: string;
 }
+
+// Adicione junto das outras interfaces (pode ser logo abaixo de ContaAReceber)
+export interface ContaAPagar {
+  id: string;
+  obraId?: string;
+  descricao: string;
+  valor: number;
+  dataVencimento: string | Date;
+  status: 'aberto' | 'pago' | 'atrasado';
+  dataPagamento?: string | Date;
+  observacoes?: string;
+}
+
+// Modifique a interface Lancamento existente para incluir o novo campo
+export interface Lancamento {
+  id: string;
+  obraId: string;
+  obraNome: string;
+  profissionalId: string;
+  profissional: string;
+  categoria: string;
+  categoriaOrcamentoId: string;
+  categoriaOrcamentoNome: string;
+  tipo: TipoLancamento;
+  turnos: string[];
+  valor: number;
+  descricaoEtapa?: string;
+  data: string;
+  fornecedor?: string;        
+  comprovanteUrl?: string;    
+  contaPagarId?: string; // NOVO: Vínculo com o financeiro
+}
+
 
 export type Turno = 'Manhã' | 'Tarde' | 'Noite';
 

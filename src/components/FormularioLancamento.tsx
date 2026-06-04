@@ -1,13 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { Sun, Moon, Sunset, Zap, Search, User, Calendar, CheckSquare, Square, AlertCircle, FileText } from 'lucide-react';
+import { Sun, Moon, Sunset, Zap, Search, User, Calendar, CalendarDays, CheckSquare, Square, AlertCircle, FileText } from 'lucide-react'; // Adicionei o CalendarDays
 import { Obra, Profissional, Turno, Lancamento } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+// Estendemos o tipo submetido para incluir a data de vencimento
 interface Props {
   obras: Obra[];
   profissionais: Profissional[];
-  onSubmit: (l: Omit<Lancamento, 'id'>) => void;
+  onSubmit: (l: Omit<Lancamento, 'id'> & { data_vencimento: string }) => void; 
 }
 
 const TURNOS: { label: Turno; icon: any }[] = [
@@ -18,7 +19,7 @@ const TURNOS: { label: Turno; icon: any }[] = [
 
 const DIAS_SEMANA = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
-// Configuração de tipos
+// Configuração de tipos (Mantida igual)
 const TIPOS_LANCAMENTO = {
   diaria: {
     label: 'Diária',
@@ -64,18 +65,27 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
   const [profissionalId, setProfissionalId] = useState('');
   const [buscaProfissional, setBuscaProfissional] = useState('');
   const [dropdownAberto, setDropdownAberto] = useState(false);
+  
+  // Estado original para a data do apontamento
   const [dataLancamento, setDataLancamento] = useState(() => {
     const hoje = new Date();
     return hoje.toISOString().split('T')[0];
   });
+
+  // NOVO: Estado para a data de vencimento (Sugere o dia de hoje + 5 dias por padrão, você pode mudar se quiser)
+  const [dataVencimento, setDataVencimento] = useState(() => {
+    const hoje = new Date();
+    hoje.setDate(hoje.getDate() + 5); 
+    return hoje.toISOString().split('T')[0];
+  });
   
-  // Estados para Diárias (Grade)
+  // Estados para Diárias (Grade) - Mantidos
   const [valorDiaria, setValorDiaria] = useState('');
   const [obraPadraoId, setObraPadraoId] = useState('');
   const [gradeSemanal, setGradeSemanal] = useState<Record<string, Record<string, {obraId: string, horas: number}>>>({});
   const [turnosSelecionados, setTurnosSelecionados] = useState<Record<string, Set<string>>>({});
   
-  // Estados para Outros Tipos (Empreitada, etc)
+  // Estados para Outros Tipos (Empreitada, etc) - Mantidos
   const [obraUnicaId, setObraUnicaId] = useState('');
   const [valorUnico, setValorUnico] = useState('');
   const [descricaoUnica, setDescricaoUnica] = useState('');
@@ -98,7 +108,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [profissionais, buscaProfissional]);
 
-  // Lógica Diárias
+  // Lógica Diárias - Mantida
   const toggleTurnoSelecionado = (dia: string, turno: string) => {
     setTurnosSelecionados(prev => {
       const nova = { ...prev };
@@ -137,7 +147,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
     }));
   };
 
-  // Cálculo de Valor Dinâmico
+  // Cálculo de Valor Dinâmico - Mantido
   const valorTotalCalculado = useMemo(() => {
     if (tipoSelecionado !== 'diaria') {
       return parseFloat(valorUnico) || 0;
@@ -156,14 +166,13 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
     return totalHoras * valorHora;
   }, [gradeSemanal, turnosSelecionados, valorDiaria, valorUnico, tipoSelecionado]);
 
-  // Submit Dinâmico
+  // Submit Dinâmico Modificado
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!profissionalId || valorTotalCalculado <= 0) return;
     const selectedProf = profissionais.find(p => p.id === profissionalId);
 
     if (tipoSelecionado === 'diaria') {
-      // Submissão de Diárias (Múltiplos Lançamentos por Turno/Dia)
       Object.entries(turnosSelecionados).forEach(([dia, turnos]) => {
         turnos.forEach(turno => {
           const dados = gradeSemanal[dia]?.[turno];
@@ -180,12 +189,12 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
             turnos: [`${dia}-${turno} (${dados.horas}h)`],
             valor: ((parseFloat(valorDiaria) / 8) * dados.horas),
             data: dataLancamento,
+            data_vencimento: dataVencimento // NOVO: Enviando a data de vencimento
           });
         });
       });
     } else {
-      // Submissão de Lançamento Único (Empreitada, Frete, etc)
-      if (!obraUnicaId) return; // Força selecionar obra
+      if (!obraUnicaId) return; 
       const obra = obras.find(o => o.id === obraUnicaId);
       
       onSubmit({
@@ -195,9 +204,10 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
         profissional: padronizar(selectedProf?.nome || ''),
         categoria: selectedProf?.categoria || '',
         tipo: tipoSelecionado,
-        turnos: [descricaoUnica || tipoConfig.label], // Usa a descrição no lugar do turno
+        turnos: [descricaoUnica || tipoConfig.label],
         valor: valorTotalCalculado,
         data: dataLancamento,
+        data_vencimento: dataVencimento // NOVO: Enviando a data de vencimento
       });
     }
 
@@ -227,10 +237,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
               <button
                 key={tipoKey}
                 type="button"
-                onClick={() => {
-                  setTipoSelecionado(tipoKey as keyof typeof TIPOS_LANCAMENTO);
-                  // Opcional: limpar valores ao trocar de tipo para evitar confusão
-                }}
+                onClick={() => setTipoSelecionado(tipoKey as keyof typeof TIPOS_LANCAMENTO)}
                 className={`px-3 py-3 rounded-xl border-2 font-bold text-xs uppercase transition-all ${
                   tipoSelecionado === tipoKey
                     ? `${config.cor} border-current scale-105`
@@ -247,17 +254,31 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
           </p>
         </div>
 
-        {/* Data */}
-        <div>
-          <label className="text-[10px] font-black uppercase text-zinc-500 ml-1 mb-2 block flex items-center gap-2">
-            <Calendar className="w-3 h-3 text-emerald-500" /> Data do Lançamento
-          </label>
-          <input 
-            type="date" 
-            value={dataLancamento} 
-            onChange={e => setDataLancamento(e.target.value)} 
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl py-4 px-4 text-zinc-200 font-bold text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
-          />
+        {/* Datas Lado a Lado */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] font-black uppercase text-zinc-500 ml-1 mb-2 block flex items-center gap-2">
+              <Calendar className="w-3 h-3 text-emerald-500" /> Data do Lançamento
+            </label>
+            <input 
+              type="date" 
+              value={dataLancamento} 
+              onChange={e => setDataLancamento(e.target.value)} 
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl py-4 px-4 text-zinc-200 font-bold text-sm focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] font-black uppercase text-zinc-500 ml-1 mb-2 block flex items-center gap-2">
+              <CalendarDays className="w-3 h-3 text-red-500" /> Data de Vencimento
+            </label>
+            <input 
+              type="date" 
+              value={dataVencimento} 
+              onChange={e => setDataVencimento(e.target.value)} 
+              className="w-full bg-zinc-950 border border-zinc-800 rounded-2xl py-4 px-4 text-zinc-200 font-bold text-sm focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+            />
+          </div>
         </div>
 
         {/* Busca Profissional */}
@@ -297,6 +318,7 @@ export function FormularioLancamento({ obras, profissionais, onSubmit }: Props) 
           )}
         </div>
 
+        {/* ... (O restante do código de MODO DIÁRIA e MODO LANÇAMENTO ÚNICO permanece inalterado) ... */}
         {/* MODO DIÁRIA: Ferramenta Rápida + Valor */}
         {tipoSelecionado === 'diaria' && (
           <>

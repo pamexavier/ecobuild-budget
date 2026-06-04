@@ -5,13 +5,13 @@ import { BottomNav } from '@/components/BottomNav';
 import { SideMenu } from '@/components/SideMenu';
 import { CadastrarObraModal } from '@/components/CadastrarObraModal';
 import { useNavigate } from 'react-router-dom';
-import { Search, Trash2 } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Clock3, Search, Sparkles, Trash2 } from 'lucide-react';
 import { TIPO_CONTRATO_LABELS } from '@/lib/types';
 import logo from '@/assets/logo.png';
 
 const Projetos = () => {
   const { user, permissions, tenantId, signOut } = useAuth();
-  const { obras = [], clientes = [], addObra, addCliente, deleteObra, contas = [] } = useAppStore(tenantId) || {};
+  const { obras = [], clientes = [], addObra, addCliente, updateObra, deleteObra, contas = [] } = useAppStore(tenantId) || {};
 
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,6 +40,56 @@ const Projetos = () => {
     res = res.filter(o => (o.nome || '').toLowerCase().includes((buscaProjetos || '').toLowerCase()));
     return res.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
   }, [obras, buscaProjetos]);
+
+  const getProjetoStatus = (projeto: any) => {
+    if (projeto.status === 'transformado_obra') {
+      return {
+        label: 'Transformado em Obra',
+        icon: CheckCircle2,
+        className: 'bg-emerald-500/15 text-emerald-200 border-emerald-500/30'
+      };
+    }
+
+    const { aReceber } = getObraInfo(projeto);
+    if (aReceber <= 0) {
+      return {
+        label: 'Aprovado',
+        icon: CheckCircle2,
+        className: 'bg-blue-500/15 text-blue-200 border-blue-500/30'
+      };
+    }
+
+    return {
+      label: 'Em Andamento',
+      icon: Clock3,
+      className: 'bg-purple-500/15 text-purple-200 border-purple-500/30'
+    };
+  };
+
+  const handleTransformarEmObra = async (projeto: any) => {
+    const categorias = (projeto.categorias || []).map((cat: any) => ({
+      nome: cat.nome,
+      valorPrevisto: cat.valorPrevisto ?? cat.valor_previsto ?? 0,
+    }));
+
+    await addObra({
+      nome: projeto.nome?.startsWith('Obra - ') ? projeto.nome : `Obra - ${projeto.nome || 'Projeto'}`,
+      endereco: projeto.endereco || '',
+      orcamentoLimite: projeto.orcamentoLimite || 0,
+      clienteId: projeto.clienteId,
+      clienteNome: projeto.clienteNome,
+      tipoContrato: 'obra',
+      status: 'ativa',
+      categorias,
+    });
+
+    await updateObra(projeto.id, {
+      ...projeto,
+      status: 'transformado_obra',
+    });
+
+    navigate('/obras');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0a0a0a] via-[#0f0f1e] to-[#0a0a0a] pb-20 text-white">
@@ -98,6 +148,8 @@ const Projetos = () => {
             {projetos.map((p, idx) => {
               const { totalProposta, aReceber } = getObraInfo(p);
               const percGasto = p.orcamentoLimite ? ((p.gastoAtual || 0) / p.orcamentoLimite) * 100 : 0;
+              const statusProjeto = getProjetoStatus(p);
+              const StatusIcon = statusProjeto.icon;
 
               return (
                 <div
@@ -114,6 +166,10 @@ const Projetos = () => {
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[9px] font-black uppercase px-2.5 py-1 rounded-full backdrop-blur-sm bg-purple-500/30 text-purple-200">
                             {TIPO_CONTRATO_LABELS[p.tipoContrato]}
+                          </span>
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-black uppercase px-2.5 py-1 rounded-full border backdrop-blur-sm ${statusProjeto.className}`}>
+                            <StatusIcon size={11} />
+                            {statusProjeto.label}
                           </span>
                         </div>
                         <h3 className="text-lg font-black uppercase text-white tracking-tight truncate">{p.nome || 'Sem Nome'}</h3>
@@ -170,6 +226,29 @@ const Projetos = () => {
                         {formatCurrency(aReceber)}
                       </p>
                     </div>
+
+                    <button
+                      type="button"
+                      disabled={p.status === 'transformado_obra'}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTransformarEmObra(p);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-emerald-200 transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-emerald-500/10"
+                    >
+                      {p.status === 'transformado_obra' ? (
+                        <>
+                          <CheckCircle2 size={14} />
+                          Obra criada
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={14} />
+                          Transformar em Obra
+                          <ArrowRight size={14} />
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               );
@@ -189,16 +268,23 @@ const Projetos = () => {
         <BottomNav
           active="projetos"
           onNavigate={(section) => {
-            const routes: Record<string, string> = {
-              'dashboard': '/',
-              'lancamento': '/lancamentos',
-              'clientes': '/clientes',
-              'obras': '/obras',
-              'relatorios': '/financeiro',
-              'contasReceber': '/financeiro',
-              'comissoes': '/financeiro',
-            };
-            if (routes[section]) navigate(routes[section]);
+            if (section === 'comissoes') {
+              navigate('/financeiro', { state: { tab: 'comissoes' } });
+            } else if (section === 'contasReceber') {
+              navigate('/financeiro', { state: { tab: 'receber' } });
+            } else if (section === 'contasPagar') {
+              navigate('/financeiro', { state: { tab: 'pagar' } });
+            } else if (section === 'relatorios') {
+              navigate('/financeiro', { state: { tab: 'receber' } });
+            } else {
+              const routes: Record<string, string> = {
+                'dashboard': '/',
+                'lancamento': '/lancamentos',
+                'clientes': '/clientes',
+                'obras': '/obras',
+              };
+              if (routes[section]) navigate(routes[section]);
+            }
           }}
           onMenuOpen={() => setMenuOpen(true)}
           permissions={permissions}
@@ -208,16 +294,23 @@ const Projetos = () => {
           onOpenChange={setMenuOpen}
           active="projetos"
           onNavigate={(section) => {
-            const routes: Record<string, string> = {
-              'dashboard': '/',
-              'lancamento': '/lancamentos',
-              'clientes': '/clientes',
-              'obras': '/obras',
-              'relatorios': '/financeiro',
-              'contasReceber': '/financeiro',
-              'comissoes': '/financeiro',
-            };
-            if (routes[section]) navigate(routes[section]);
+            if (section === 'comissoes') {
+              navigate('/financeiro', { state: { tab: 'comissoes' } });
+            } else if (section === 'contasReceber') {
+              navigate('/financeiro', { state: { tab: 'receber' } });
+            } else if (section === 'contasPagar') {
+              navigate('/financeiro', { state: { tab: 'pagar' } });
+            } else if (section === 'relatorios') {
+              navigate('/financeiro', { state: { tab: 'receber' } });
+            } else {
+              const routes: Record<string, string> = {
+                'dashboard': '/',
+                'lancamento': '/lancamentos',
+                'clientes': '/clientes',
+                'obras': '/obras',
+              };
+              if (routes[section]) navigate(routes[section]);
+            }
           }}
           permissions={permissions}
           userEmail={user?.email || ''}

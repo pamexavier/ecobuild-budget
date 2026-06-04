@@ -90,19 +90,23 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      
+      {/* CORREÇÃO MOBILE: max-h-[90vh], overflow-y-auto, w-[95vw], padding ajustado */}
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl p-4 sm:p-6 custom-scrollbar">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
             {defaultValues?.nome ? 'Vincular Novo Profissional' : 'Cadastrar Profissional'}
           </DialogTitle>
         </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {defaultValues?.nome && (
             <div className="bg-primary/5 border border-primary/20 p-3 rounded-lg text-xs text-primary mb-2">
               <strong>Dica:</strong> Cadastrando fornecedor da planilha para vincular ao sistema.
             </div>
           )}
+          
           <div>
             <label className="text-sm font-medium block mb-1.5">Nome Completo / Empresa</label>
             <input
@@ -114,6 +118,7 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
               required
             />
           </div>
+          
           <div>
             <label className="text-sm font-medium block mb-1.5">CPF ou CNPJ</label>
             <input
@@ -125,7 +130,6 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
             />
           </div>
 
-          {/* Categoria com opção de criar nova */}
           <div>
             <label className="text-sm font-medium block mb-1.5">Categoria / Função</label>
             {!adicionandoCategoria ? (
@@ -133,7 +137,7 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
                 <select
                   value={categoria}
                   onChange={e => setCategoria(e.target.value)}
-                  className="flex-1 rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex-1 min-w-0 rounded-lg border border-input bg-background px-3 py-2.5 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-ring"
                   required
                 >
                   <option value="">Selecione</option>
@@ -142,7 +146,7 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
                 <button
                   type="button"
                   onClick={() => setAdicionandoCategoria(true)}
-                  className="flex items-center gap-1 text-xs text-primary font-semibold border border-primary/30 rounded-lg px-3 py-2 hover:bg-primary/5 transition-colors whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-1 text-xs text-primary font-semibold border border-primary/30 rounded-lg px-3 py-2 hover:bg-primary/5 transition-colors whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Nova
@@ -156,13 +160,13 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
                   onChange={e => setNovaCategoria(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), confirmarNovaCategoria())}
                   placeholder="Ex: Mestre de Obras"
-                  className="flex-1 rounded-lg border border-primary bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex-1 min-w-0 rounded-lg border border-primary bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   autoFocus
                 />
                 <button
                   type="button"
                   onClick={confirmarNovaCategoria}
-                  className="flex items-center gap-1 text-xs text-white font-semibold bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 transition-colors whitespace-nowrap"
+                  className="flex-shrink-0 flex items-center gap-1 text-xs text-white font-semibold bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 transition-colors whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Criar
@@ -170,7 +174,7 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
                 <button
                   type="button"
                   onClick={() => { setAdicionandoCategoria(false); setNovaCategoria(''); }}
-                  className="flex items-center justify-center border border-input rounded-lg px-2 py-2 hover:bg-muted transition-colors"
+                  className="flex-shrink-0 flex items-center justify-center border border-input rounded-lg px-2 py-2 hover:bg-muted transition-colors"
                 >
                   <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
@@ -183,7 +187,8 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* CORREÇÃO MOBILE: grid-cols-1 em celulares (sm:grid-cols-2 em telas maiores) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium block mb-1.5">Tipo de PIX</label>
               <select
@@ -206,7 +211,8 @@ export function CadastrarProfissionalModal({ onAdd, trigger, defaultValues, cate
               />
             </div>
           </div>
-          <Button type="submit" className="w-full py-6 font-bold">
+          
+          <Button type="submit" className="w-full py-6 font-bold mt-2">
             {defaultValues?.nome ? 'Confirmar e Vincular' : 'Finalizar Cadastro'}
           </Button>
         </form>

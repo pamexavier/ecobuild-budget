@@ -99,7 +99,7 @@ export function CadastrarObraModal({ onAdd, onAddCliente, clientes, trigger, def
         {trigger || (
           <Button variant="outline" size="sm" className="gap-1.5 bg-white/10 border-white/20 text-white hover:bg-white/20">
             <HardHat className="w-4 h-4" />
-            Nova Obra/Projeto
+            Nova Obra
             <Plus className="w-3 h-3" />
           </Button>
         )}
